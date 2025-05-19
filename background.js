@@ -35,3 +35,11 @@ chrome.action.onClicked.addListener(async (tab) => {
     });
 
 });
+
+chrome.webNavigation.onDOMContentLoaded.addListener(async (details) => {
+  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+  chrome.scripting.executeScript({
+    target: {tabId: tab.id},
+      files: ['vim-scroll.js']
+    });
+});
