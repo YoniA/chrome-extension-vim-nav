@@ -1,21 +1,33 @@
+if (window.__vimNavActive) throw new Error('VimNav already active');
+window.__vimNavActive = true;
+
+let enabled = true;
 let lastKey = null;
 
 // link mode state
 let linkMode = false;
-let linkHash = {}
+let linkHash = {};
 let linkModeBuffer = '';
+let linkModeTimeout = null;
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.action === 'setEnabled') enabled = msg.value;
+});
 
 document.addEventListener('keydown', (e) => {
+  if (!enabled) return;
+
 	const SCROLL_STEP = 50;
 	const keyName = e.key;
 
   if (linkMode) {
     linkModeBuffer += keyName;
-    setTimeout(() => {
+    clearTimeout(linkModeTimeout);
+    linkModeTimeout = setTimeout(() => {
       const url = linkHash[linkModeBuffer];
       if (url && url.length > 0) {
         window.location.href = url;
-        resetLinkModeStat();
+        resetLinkModeState();
       }
     }, 1000);
   }
@@ -57,11 +69,11 @@ document.addEventListener('keydown', (e) => {
     case 'f':
       if (!linkMode) {
         linkMode = true;
-        lableAllLinks();
+        labelAllLinks();
       }
       break;
     case 'Escape':
-      if(linkMode != false) {
+      if (linkMode) {
         linkMode = false;
         hideAllLinkLabels();
         resetLinkModeState();
@@ -78,24 +90,17 @@ document.addEventListener('keydown', (e) => {
 
 
 
-function lableAllLinks() {
-    const links = document.querySelector('a');
-
+function labelAllLinks() {
     Array.from(document.getElementsByTagName('a')).forEach((link, index) => {
-          const url = link.href;
-          linkHash[index] = url;
+      const url = link.href;
+      linkHash[index] = url;
 
-        
-          
-          const label = document.createElement('span');
-          label.classList.add(`link-label`);
-          label.textContent = `${index}`;
-          label.style='background-color: yellow; border: 1px solid black; border-radius: 5px';
-          link.parentNode.insertBefore(label, link.nextSibling);
-          
-        });
-
-    console.table(linkHash);
+      const label = document.createElement('span');
+      label.classList.add('link-label');
+      label.textContent = `${index}`;
+      label.style = 'background-color: yellow; border: 1px solid black; border-radius: 5px';
+      link.parentNode.insertBefore(label, link.nextSibling);
+    });
 }
 
 
@@ -105,6 +110,8 @@ function hideAllLinkLabels() {
 
 
 function resetLinkModeState() {
+  clearTimeout(linkModeTimeout);
+  linkModeTimeout = null;
   linkModeBuffer = '';
   linkHash = {};
 }
