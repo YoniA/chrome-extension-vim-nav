@@ -138,8 +138,10 @@ Acceptance criteria:
 - [x] Typed characters appear in the field unchanged.
 - [x] After focus leaves the field (e.g. click on the page body), commands work again.
 
-Notes: Open question: should a key (e.g. Escape) blur the field so the user can resume navigation without the mouse?
-Done: keys are ignored when typed in a text-like `<input>` (all types except checkbox, radio, button, submit, reset, range, color, file, image, hidden), `<textarea>`, `<select>` or a contenteditable element, including inputs inside shadow roots. A `g` in a field never pairs with a `g` outside it as `gg`. The Escape question is still open (not implemented). Tests: `tests/key-filtering.test.js`, `tests/e2e/b1-b2-key-filtering.test.js`.
+- [x] Escape in a field takes focus out of it (blur), so navigation keys work again without the mouse. The Escape still reaches the page (e.g. to close its autocomplete). Ctrl/Cmd/Alt+Escape does not blur.
+
+Notes: Escape-to-leave-the-field decided by the project owner.
+Done: keys are ignored when typed in a text-like `<input>` (all types except checkbox, radio, button, submit, reset, range, color, file, image, hidden), `<textarea>`, `<select>` or a contenteditable element, including inputs inside shadow roots. A `g` in a field never pairs with a `g` outside it as `gg`. Escape blurs the field. Tests: `tests/key-filtering.test.js`, `tests/e2e/b1-b2-key-filtering.test.js`.
 
 ### B-2 Modifier shortcuts trigger VimNav commands
 Type: bug · Priority: P1 · Status: done

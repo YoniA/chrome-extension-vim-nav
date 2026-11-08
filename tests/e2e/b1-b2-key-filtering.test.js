@@ -139,3 +139,41 @@ describe('B-2 modifier shortcuts', { timeout: 60000 }, () => {
     await page.keyboard.press('Escape');
   });
 });
+
+describe('B-1 Escape leaves the field', { timeout: 60000 }, () => {
+  for (const [name, focus, valueOf] of [
+    ['text input', (p) => p.click('#text'), (p) => p.inputValue('#text')],
+    ['textarea', (p) => p.click('#area'), (p) => p.inputValue('#area')],
+    ['contenteditable editor', (p) => p.click('#para'), (p) => p.textContent('#para')],
+    ['shadow-root input', (p) => p.locator('#shadow-host input').click(), (p) => p.locator('#shadow-host input').inputValue()],
+  ]) {
+    test(`Escape in a ${name} takes focus out; then j scrolls and the typed text is kept`, async () => {
+      await focus(page);
+      await page.keyboard.type('hi');
+      await page.keyboard.press('Escape');
+      const focused = await page.evaluate(() => document.activeElement === document.body || document.activeElement === null);
+      assert.ok(focused, `${name} still has focus`);
+      assert.ok((await valueOf(page)).includes('hi'), 'typed text lost');
+      await page.keyboard.press('j');
+      await page.waitForTimeout(150);
+      assert.ok((await state()).y > 0, 'j did not scroll after Escape');
+    });
+  }
+
+  test('Escape in a <select> takes focus out; then j scrolls', async () => {
+    await page.focus('#choice');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('j');
+    await page.waitForTimeout(150);
+    assert.ok((await state()).y > 0);
+  });
+
+  test('a second Escape (now on the page) does nothing; f still enters link mode', async () => {
+    await page.click('#text');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('f');
+    await page.waitForTimeout(150);
+    assert.equal((await state()).labels, 1);
+  });
+});

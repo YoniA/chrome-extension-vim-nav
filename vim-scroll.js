@@ -18,9 +18,17 @@ chrome.runtime.onMessage.addListener((msg) => {
 document.addEventListener('keydown', (e) => {
   if (!enabled) return;
 
-  // Leave typing in fields and browser/page shortcuts (Ctrl, Cmd, Alt) alone. Shift is fine: G, H, L.
-  if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e)) {
+  // Leave browser/page shortcuts (Ctrl, Cmd, Alt) and typing in fields alone. Shift is fine: G, H, L.
+  if (e.ctrlKey || e.metaKey || e.altKey) {
     lastKey = null; // so a g here and a g after it are not gg
+    return;
+  }
+  const field = typingTarget(e);
+  if (field) {
+    lastKey = null;
+    // Escape leaves the field, so navigation keys work again without the mouse.
+    // Not prevented: the page still sees it (e.g. to close its autocomplete menu).
+    if (e.key === 'Escape') field.blur();
     return;
   }
 
@@ -82,20 +90,20 @@ document.addEventListener('keydown', (e) => {
 // Input types that don't take typed text; any other <input> type does.
 const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image', 'hidden']);
 
-// True when the key was typed in a text field, <select> or contenteditable element.
+// The text field, <select> or contenteditable element the key was typed in, or null.
 // composedPath()[0] is the real target, even inside a shadow root (e.target is then the host).
-function isTypingTarget(e) {
+function typingTarget(e) {
   const el = (e.composedPath && e.composedPath()[0]) || e.target;
-  if (!el || el.nodeType !== 1) return false;
-  if (el.isContentEditable) return true;
+  if (!el || el.nodeType !== 1) return null;
+  if (el.isContentEditable) return el;
   switch (el.tagName) {
     case 'TEXTAREA':
     case 'SELECT':
-      return true;
+      return el;
     case 'INPUT':
-      return !NON_TEXT_INPUT_TYPES.has(el.type);
+      return NON_TEXT_INPUT_TYPES.has(el.type) ? null : el;
   }
-  return false;
+  return null;
 }
 
 

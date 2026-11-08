@@ -228,3 +228,73 @@ describe('B-2 keys with Ctrl, Meta or Alt run no command', () => {
     assert.deepEqual(env.navigations(), [url(1)]);
   });
 });
+
+describe('B-1 Escape takes focus out of a field', () => {
+  for (const [name, tag, attrs] of [
+    ['text input', 'input', { type: 'text' }],
+    ['textarea', 'textarea', {}],
+    ['select', 'select', {}],
+    ['contenteditable element', 'div', { contenteditable: 'true' }],
+  ]) {
+    test(`Escape in a ${name} blurs it`, () => {
+      const env = setup();
+      const target = element(env, tag, attrs);
+      env.keydown('Escape', { target });
+      assert.equal(target.blurCalls, 1);
+    });
+  }
+
+  test('Escape in an input inside a shadow root blurs that input', () => {
+    const env = setup();
+    const host = element(env, 'my-search');
+    const input = env.document.createElement('input');
+    env.keydown('Escape', { target: host, path: [input, host, env.document.body] });
+    assert.equal(input.blurCalls, 1);
+  });
+
+  test('the Escape is not prevented or stopped, so the page still sees it (e.g. to close a menu)', () => {
+    const env = setup();
+    const target = element(env, 'input');
+    const e = env.keydown('Escape', { target });
+    assert.equal(e.defaultPrevented, false);
+    assert.equal(e.propagationStopped, false);
+  });
+
+  test('Escape runs no other command (no link mode, no scroll)', () => {
+    const env = setup();
+    const target = element(env, 'input');
+    env.keydown('Escape', { target });
+    assertNothingRan(env, 'Escape');
+  });
+
+  test('other keys typed in a field do not blur it', () => {
+    const env = setup();
+    const target = element(env, 'input');
+    pressAll(env, [...COMMAND_KEYS, 'Enter', 'Tab'], { target });
+    assert.equal(target.blurCalls, undefined);
+  });
+
+  test('Ctrl/Cmd/Alt+Escape in a field does not blur it', () => {
+    for (const modifier of ['ctrlKey', 'metaKey', 'altKey']) {
+      const env = setup();
+      const target = element(env, 'input');
+      env.keydown('Escape', { target, [modifier]: true });
+      assert.equal(target.blurCalls, undefined, modifier);
+    }
+  });
+
+  test('with VimNav OFF, Escape in a field does not blur it', () => {
+    const env = setup();
+    env.message({ action: 'setEnabled', value: false });
+    const target = element(env, 'input');
+    env.keydown('Escape', { target });
+    assert.equal(target.blurCalls, undefined);
+  });
+
+  test('Escape on a checkbox (not a text field) does not blur it', () => {
+    const env = setup();
+    const target = element(env, 'input', { type: 'checkbox' });
+    env.keydown('Escape', { target });
+    assert.equal(target.blurCalls, undefined);
+  });
+});

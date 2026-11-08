@@ -565,7 +565,10 @@ class FakeElement extends FakeNode {
 
   focus() {}
 
-  blur() {}
+  // Counts calls, so tests can check that VimNav took focus out of a field.
+  blur() {
+    this.blurCalls = (this.blurCalls || 0) + 1;
+  }
 
   click() {}
 
