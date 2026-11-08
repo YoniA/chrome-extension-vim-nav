@@ -245,8 +245,6 @@ describe('F-6 history back/forward with H/L', () => {
 });
 
 describe('known bugs, not yet covered', () => {
-  test.todo('B-1 commands are ignored while focus is in an editable element');
-  test.todo('B-2 commands are ignored with Ctrl, Meta or Alt held');
   test.todo('B-13 scroll commands scroll an inner scrolling element / G reaches the true bottom');
   test.todo('B-14 decided priority between page shortcuts and VimNav keys');
 });

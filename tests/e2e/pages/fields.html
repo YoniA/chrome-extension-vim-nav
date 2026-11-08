@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Fields</title>
+<style>body { width: 3000px; height: 5000px; } p { margin: 8px; } #editor { width: 300px; border: 1px solid; }</style></head>
+<body>
+<p><input id="text" type="text"></p>
+<p><input id="search" type="search"></p>
+<p><textarea id="area"></textarea></p>
+<p><div id="editor" contenteditable="true"><p id="para">Rich text</p></div></p>
+<p><select id="choice"><option>apple</option><option>banana</option></select></p>
+<p><input id="check" type="checkbox"></p>
+<p><my-field id="shadow-host"></my-field></p>
+<p><a href="target.html">a link</a></p>
+<script>
+  customElements.define('my-field', class extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }).innerHTML = '<input id="inner">'; }
+  });
+</script>
+</body></html>

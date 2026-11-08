@@ -114,12 +114,28 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize } = {}) {
       runFile(CONTENT_FILE, context);
     },
     // Dispatches a keydown to every registered keydown listener. timeStamp defaults to clock.now.
-    keydown(key, { timeStamp = clock.now, repeat = false } = {}) {
+    // target is the element the key was typed in (default <body>, i.e. nothing focused).
+    keydown(
+      key,
+      { timeStamp = clock.now, repeat = false, target = document.body, path, ctrlKey = false, metaKey = false, altKey = false, shiftKey = false } = {},
+    ) {
+      // path overrides composedPath(), e.g. for an input inside a shadow root (target = its host).
       const event = {
         type: 'keydown',
         key,
         timeStamp,
         repeat,
+        target,
+        ctrlKey,
+        metaKey,
+        altKey,
+        shiftKey,
+        composedPath() {
+          if (path) return path.slice();
+          const nodes = [];
+          for (let n = target; n; n = n.parentNode) nodes.push(n);
+          return nodes;
+        },
         defaultPrevented: false,
         propagationStopped: false,
         preventDefault() {

@@ -568,6 +568,24 @@ class FakeElement extends FakeNode {
   blur() {}
 
   click() {}
+
+  // Like HTMLInputElement.type: the lowercased type attribute, 'text' when missing.
+  // Only defined for <input>; other elements have no `type` here.
+  get type() {
+    if (this.tagName !== 'INPUT') return undefined;
+    return (this.getAttribute('type') || 'text').toLowerCase();
+  }
+
+  // Like HTMLElement.isContentEditable: the nearest contenteditable attribute decides,
+  // "" / "true" / "plaintext-only" make it editable, "false" does not.
+  get isContentEditable() {
+    for (let el = this; el && el.nodeType === ELEMENT_NODE; el = el.parentNode) {
+      const v = el.getAttribute('contenteditable');
+      if (v === null) continue;
+      return ['', 'true', 'plaintext-only'].includes(v.toLowerCase());
+    }
+    return false;
+  }
 }
 
 class FakeAnchor extends FakeElement {

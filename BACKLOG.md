@@ -127,30 +127,33 @@ Notes: Owner-approved behavior, including answers to its open questions; not par
 ## Proposed
 
 ### B-1 Commands fire while typing in text fields
-Type: bug · Priority: P1 (proposed) · Status: proposed
+Type: bug · Priority: P1 · Status: done
 
 Current behavior: The keydown handler does not check where the key was typed. Typing in an input, textarea or contenteditable element scrolls the page (`j`/`k`/`h`/`l`), `f` enters link mode, and `H`/`L` navigate history, which can lose what the user typed.
 Expected behavior: While focus is in an editable element, VimNav ignores keys and the user types normally.
 Steps to reproduce: Enable VimNav, focus a search box, type "hello" (the `h` and `l` scroll), or type "H" (the page goes back).
 
 Acceptance criteria:
-- [ ] Typing in `<input>` (text-like types), `<textarea>`, `<select>` and contenteditable elements triggers no VimNav command.
-- [ ] Typed characters appear in the field unchanged.
-- [ ] After focus leaves the field (e.g. click on the page body), commands work again.
+- [x] Typing in `<input>` (text-like types), `<textarea>`, `<select>` and contenteditable elements triggers no VimNav command.
+- [x] Typed characters appear in the field unchanged.
+- [x] After focus leaves the field (e.g. click on the page body), commands work again.
 
 Notes: Open question: should a key (e.g. Escape) blur the field so the user can resume navigation without the mouse?
+Done: keys are ignored when typed in a text-like `<input>` (all types except checkbox, radio, button, submit, reset, range, color, file, image, hidden), `<textarea>`, `<select>` or a contenteditable element, including inputs inside shadow roots. A `g` in a field never pairs with a `g` outside it as `gg`. The Escape question is still open (not implemented). Tests: `tests/key-filtering.test.js`, `tests/e2e/b1-b2-key-filtering.test.js`.
 
 ### B-2 Modifier shortcuts trigger VimNav commands
-Type: bug · Priority: P1 (proposed) · Status: proposed
+Type: bug · Priority: P1 · Status: done
 
 Current behavior: The handler matches only `e.key` and ignores Ctrl/Cmd/Alt. Cmd/Ctrl+L (focus address bar) also scrolls right; Cmd/Ctrl+F (find) also enters link mode; Ctrl+J/K etc. also scroll.
 Expected behavior: Key combinations with Ctrl, Cmd (Meta) or Alt are left to the browser/page and do not run VimNav commands.
 Steps to reproduce: Enable VimNav on a wide page, press Cmd+F: link labels appear alongside the find bar.
 
 Acceptance criteria:
-- [ ] With Ctrl, Meta or Alt held, no VimNav command runs (including during link mode).
-- [ ] Shift-based commands (`G`, `H`, `L`) still work.
-- [ ] Browser shortcuts such as Cmd/Ctrl+F and Cmd/Ctrl+L behave as they do without the extension.
+- [x] With Ctrl, Meta or Alt held, no VimNav command runs (including during link mode).
+- [x] Shift-based commands (`G`, `H`, `L`) still work.
+- [x] Browser shortcuts such as Cmd/Ctrl+F and Cmd/Ctrl+L behave as they do without the extension.
+
+Done: with Ctrl, Meta or Alt held, keys run nothing, in normal and link mode (a modifier+letter is not label input), and are not prevented. Tests: `tests/key-filtering.test.js`, `tests/e2e/b1-b2-key-filtering.test.js`.
 
 ### B-3 Auto-enable on new tabs and navigation probably does not work
 Type: bug · Priority: P1 (proposed) · Status: proposed

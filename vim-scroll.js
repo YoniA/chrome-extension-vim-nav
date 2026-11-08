@@ -18,6 +18,12 @@ chrome.runtime.onMessage.addListener((msg) => {
 document.addEventListener('keydown', (e) => {
   if (!enabled) return;
 
+  // Leave typing in fields and browser/page shortcuts (Ctrl, Cmd, Alt) alone. Shift is fine: G, H, L.
+  if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e)) {
+    lastKey = null; // so a g here and a g after it are not gg
+    return;
+  }
+
 	const SCROLL_STEP = 50;
 	const keyName = e.key;
 
@@ -71,6 +77,26 @@ document.addEventListener('keydown', (e) => {
 	};
 
 });
+
+
+// Input types that don't take typed text; any other <input> type does.
+const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image', 'hidden']);
+
+// True when the key was typed in a text field, <select> or contenteditable element.
+// composedPath()[0] is the real target, even inside a shadow root (e.target is then the host).
+function isTypingTarget(e) {
+  const el = (e.composedPath && e.composedPath()[0]) || e.target;
+  if (!el || el.nodeType !== 1) return false;
+  if (el.isContentEditable) return true;
+  switch (el.tagName) {
+    case 'TEXTAREA':
+    case 'SELECT':
+      return true;
+    case 'INPUT':
+      return !NON_TEXT_INPUT_TYPES.has(el.type);
+  }
+  return false;
+}
 
 
 // In link mode only lowercase letters are label input; other keys except Escape are ignored.
