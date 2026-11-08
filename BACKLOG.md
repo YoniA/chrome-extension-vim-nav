@@ -101,32 +101,34 @@ Acceptance criteria:
 Notes: Project owner decisions; split from F-13 to keep both items small. Not part of branch `fix-labels`. Same constraints as F-13: must not ship before B-1, B-2 and B-10.
 
 ### F-15 Search the page with /
-Type: feature · Priority: P3 (proposed) · Status: ready
+Type: feature · Priority: P3 · Status: done
 
 As a keyboard-only user, I want to press `/`, type text and jump between its matches on the page, so that I can find things without the mouse or Chrome's find bar.
 
 Acceptance criteria:
-- [ ] With VimNav ON, `/` opens a small search bar at the bottom of the page with the cursor in it; the `/` itself is not typed into the bar.
-- [ ] With VimNav OFF, `/` does nothing.
-- [ ] Each `/` opens the bar empty. Pressing the Up arrow in the bar fills in the previous query.
-- [ ] While the bar is open, typed keys go into the bar and run no VimNav command (e.g. typing `j` does not scroll).
-- [ ] As the user types, all matches are highlighted, and the page scrolls to the first match after the scroll position when `/` was pressed.
-- [ ] The bar shows a "current / total" counter (e.g. "3 / 17") while there are matches.
-- [ ] With no match, the bar shows "no match" and the page does not move.
-- [ ] Smartcase: a query with no uppercase letter matches case-insensitively ("foo" matches "Foo" and "FOO"); a query with an uppercase letter matches case-sensitively ("Foo" matches "Foo" only).
-- [ ] The query is plain text: characters such as `.`, `*` or `(` match themselves, not as regular-expression syntax.
-- [ ] Only visible text is searched: text in hidden elements (e.g. `display: none`) or collapsed content (e.g. a closed `<details>`) is not matched.
-- [ ] Enter closes the bar and keeps the current match selected and highlighted.
-- [ ] After a search, `n` jumps to the next match and `N` to the previous one; after the last match `n` wraps to the first, and before the first `N` wraps to the last.
-- [ ] Before any search, `n` and `N` do nothing.
-- [ ] Escape in the bar cancels: the bar closes, highlights are removed, and the page returns to the scroll position it had when `/` was pressed.
-- [ ] Escape after a search (bar closed) clears the highlights.
-- [ ] After Escape has cleared the highlights, `n`/`N` still jump to matches of the last search and bring the highlights back (like Vim's `:noh`).
-- [ ] Chrome's own Cmd/Ctrl+F find bar is unaffected.
+- [x] With VimNav ON, `/` opens a small search bar at the bottom of the page with the cursor in it; the `/` itself is not typed into the bar.
+- [x] With VimNav OFF, `/` does nothing.
+- [x] Each `/` opens the bar empty. Pressing the Up arrow in the bar fills in the previous query.
+- [x] While the bar is open, typed keys go into the bar and run no VimNav command (e.g. typing `j` does not scroll).
+- [x] As the user types, all matches are highlighted, and the page scrolls to the first match after the scroll position when `/` was pressed.
+- [x] The bar shows a "current / total" counter (e.g. "3 / 17") while there are matches.
+- [x] With no match, the bar shows "no match" and the page does not move.
+- [x] Smartcase: a query with no uppercase letter matches case-insensitively ("foo" matches "Foo" and "FOO"); a query with an uppercase letter matches case-sensitively ("Foo" matches "Foo" only).
+- [x] The query is plain text: characters such as `.`, `*` or `(` match themselves, not as regular-expression syntax.
+- [x] Only visible text is searched: text in hidden elements (e.g. `display: none`) or collapsed content (e.g. a closed `<details>`) is not matched.
+- [x] Enter closes the bar and keeps the current match selected and highlighted.
+- [x] After a search, `n` jumps to the next match and `N` to the previous one; after the last match `n` wraps to the first, and before the first `N` wraps to the last.
+- [x] Before any search, `n` and `N` do nothing.
+- [x] Escape in the bar cancels: the bar closes, highlights are removed, and the page returns to the scroll position it had when `/` was pressed.
+- [x] Escape after a search (bar closed) clears the highlights.
+- [x] After Escape has cleared the highlights, `n`/`N` still jump to matches of the last search and bring the highlights back (like Vim's `:noh`).
+- [x] Chrome's own Cmd/Ctrl+F find bar is unaffected.
 
 Notes: Owner-approved behavior, including answers to its open questions; not part of branch `fix-labels`. Depends on B-1 (keys typed in the search bar must not trigger commands) and B-2 (modifier combos, including Cmd/Ctrl+F). `n`/`N` are currently unused. In link mode `/`, `n` and `N` count as label input (B-10). On sites that use `/` themselves (e.g. GitHub, YouTube), the conflict is B-14. Up arrow recalls only the previous query; a longer query history is not part of this item.
 
 ## Proposed
+
+Done: matches are painted with the CSS Custom Highlight API (the page's DOM is not changed); the bar is in a shadow root at the bottom of the viewport and keeps typed keys from the page's shortcuts. A match may span elements. A cancelled search keeps the previous one for `n`/`N`; turning VimNav OFF or leaving the page closes the bar. Not covered: text inside other shadow roots, iframes and form field values; at most 10000 matches. Tests: `tests/search.test.js`, `tests/e2e/f15-search.test.js`.
 
 ### B-1 Commands fire while typing in text fields
 Type: bug · Priority: P1 · Status: done

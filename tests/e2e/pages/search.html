@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Search</title>
+<style>body { font: 16px sans-serif; margin: 8px; } .gap { height: 3000px; }</style></head>
+<body>
+<p id="p1">foo at the top</p>
+<p id="p2">Foo with a capital</p>
+<p id="p3">FOO shouting</p>
+<div style="display: none">foo hidden by display none</div>
+<p style="visibility: hidden">foo hidden by visibility</p>
+<details><summary>more</summary><p>foo in a closed details</p></details>
+<p id="special">special: a.b and axb, a(b) and ab</p>
+<p id="split">split: hel<b>lo</b> world</p>
+<p><a href="target.html">a link</a></p>
+<div class="gap"></div>
+<p id="far">foo far below</p>
+<div class="gap"></div>
+<script>
+  window.pageKeys = [];
+  document.addEventListener('keydown', (e) => pageKeys.push(e.key));
+</script>
+</body></html>

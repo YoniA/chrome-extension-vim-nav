@@ -15,7 +15,10 @@ let linkModeTimeout = null;
 
 function setEnabled(value) {
   enabled = value;
-  if (!enabled && linkMode) exitLinkMode();
+  if (enabled) return;
+  if (linkMode) exitLinkMode();
+  if (searchBar) cancelSearch();
+  hideSearchHighlights();
 }
 
 let stateChanged = false; // a change that arrives before the first read wins over it
@@ -88,6 +91,20 @@ document.addEventListener('keydown', (e) => {
 			case 'f':
 				linkMode = true;
 				labelAllLinks();
+				break;
+			case '/':
+				// Focus moves into the search bar during this keydown; don't type the / into it.
+				e.preventDefault();
+				openSearchBar();
+				break;
+			case 'n':
+				stepSearch(1);
+				break;
+			case 'N':
+				stepSearch(-1);
+				break;
+			case 'Escape':
+				hideSearchHighlights();
 				break;
 			case 'x':
 				// Holding x closes one tab: auto-repeat keydowns (also in the next active tab) are ignored.
@@ -193,6 +210,7 @@ function exitLinkMode() {
 // drawn; leave it in normal mode whenever it is hidden.
 window.addEventListener('pagehide', () => {
   if (linkMode) exitLinkMode();
+  if (searchBar) cancelSearch();
 });
 
 
@@ -319,4 +337,261 @@ function resetLinkModeState() {
   linkModeTimeout = null;
   linkModeBuffer = '';
   linkHash = {};
+}
+
+
+// ---- Search with / (F-15) ----
+// Matches are painted with the CSS Custom Highlight API, so the page's DOM is never changed.
+// The bar lives in a shadow root (page CSS can't restyle it) and keeps the keys typed into it
+// away from the page's own shortcuts.
+
+const MAX_MATCHES = 10000;
+const SKIPPED_TEXT_PARENTS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TEXTAREA', 'OPTION', 'VIMNAV-LABEL', 'VIMNAV-SEARCH']);
+
+let searchBar = null; // { host, input, count, origin, previous } while the bar is open
+let lastQuery = ''; // last submitted query, recalled with Up
+let searchMatches = []; // Ranges of the last search
+let searchIndex = -1; // current match
+
+
+function openSearchBar() {
+  if (searchBar) {
+    searchBar.input.focus();
+    return;
+  }
+  const host = document.createElement('vimnav-search');
+  host.style.cssText = ['all: initial', 'display: block', 'position: fixed', 'left: 0', 'right: 0', 'bottom: 0', 'z-index: 2147483647']
+    .map(declaration => `${declaration} !important`).join('; ');
+  const root = host.attachShadow({ mode: 'open' });
+  const style = document.createElement('style');
+  style.textContent = `
+    .bar { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: #222; color: #eee;
+           font: 14px/1.4 sans-serif; border-top: 1px solid #555; }
+    .slash { font-weight: bold; }
+    input { flex: 1; min-width: 0; margin: 0; padding: 2px 6px; background: #111; color: #fff;
+            border: 1px solid #555; border-radius: 3px; font: inherit; outline: none; }
+    .count { white-space: nowrap; color: #bbb; }`;
+  const barEl = document.createElement('div');
+  barEl.className = 'bar';
+  const slash = document.createElement('span');
+  slash.className = 'slash';
+  slash.textContent = '/';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.spellcheck = false;
+  input.autocomplete = 'off';
+  input.setAttribute('aria-label', 'Search the page');
+  const count = document.createElement('span');
+  count.className = 'count';
+  barEl.append(slash, input, count);
+  root.append(style, barEl);
+
+  // Stop keys here so neither the page's shortcuts nor VimNav's own commands see them.
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitSearch();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelSearch();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (lastQuery) {
+        input.value = lastQuery;
+        runSearch();
+      }
+    }
+  });
+  input.addEventListener('keyup', (e) => e.stopPropagation());
+  input.addEventListener('keypress', (e) => e.stopPropagation());
+  input.addEventListener('input', runSearch);
+
+  searchBar = {
+    host,
+    input,
+    count,
+    origin: { x: window.scrollX, y: window.scrollY },
+    previous: { matches: searchMatches, index: searchIndex },
+  };
+  hideSearchHighlights();
+  document.documentElement.appendChild(host);
+  input.focus();
+}
+
+
+function closeSearchBar() {
+  searchBar.host.remove();
+  searchBar = null;
+}
+
+
+// Escape in the bar: back to how things were before /, including the previous search for n/N.
+function cancelSearch() {
+  const { origin, previous } = searchBar;
+  closeSearchBar();
+  hideSearchHighlights();
+  searchMatches = previous.matches;
+  searchIndex = previous.index;
+  window.scrollTo({ left: origin.x, top: origin.y, behavior: 'instant' });
+}
+
+
+// Enter: keep the current match highlighted and selected; n/N continue from it.
+function submitSearch() {
+  const query = searchBar.input.value;
+  if (!query) {
+    cancelSearch();
+    return;
+  }
+  lastQuery = query;
+  closeSearchBar();
+  if (searchMatches.length) selectCurrentMatch();
+}
+
+
+function runSearch() {
+  const query = searchBar.input.value;
+  searchMatches = query ? findMatches(query) : [];
+  if (!searchMatches.length) {
+    searchIndex = -1;
+    hideSearchHighlights();
+    searchBar.count.textContent = query ? 'no match' : '';
+    return;
+  }
+  searchIndex = firstMatchAfter(searchBar.origin.y);
+  showSearchHighlights();
+  scrollToCurrentMatch();
+  updateSearchCount();
+}
+
+
+function stepSearch(direction) {
+  if (!searchMatches.length) return;
+  const n = searchMatches.length;
+  searchIndex = (searchIndex + direction + n) % n;
+  showSearchHighlights();
+  scrollToCurrentMatch();
+  selectCurrentMatch();
+}
+
+
+function updateSearchCount() {
+  if (searchBar) searchBar.count.textContent = `${searchIndex + 1} / ${searchMatches.length}`;
+}
+
+
+// Plain text; smartcase: case-insensitive unless the query has an uppercase letter.
+function findMatches(query) {
+  const caseSensitive = query !== query.toLowerCase();
+  const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+  const nodes = visibleTextNodes();
+  const starts = [];
+  let text = '';
+  for (const node of nodes) {
+    starts.push(text.length);
+    text += node.data;
+  }
+
+  // Text position -> (text node, offset); a match may span several nodes.
+  const locate = (pos, isEnd) => {
+    let lo = 0;
+    let hi = starts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (starts[mid] < pos || (!isEnd && starts[mid] === pos)) lo = mid;
+      else hi = mid - 1;
+    }
+    return { node: nodes[lo], offset: pos - starts[lo] };
+  };
+
+  const matches = [];
+  let m;
+  while ((m = pattern.exec(text)) && matches.length < MAX_MATCHES) {
+    const start = locate(m.index, false);
+    const end = locate(m.index + m[0].length, true);
+    const range = document.createRange();
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset);
+    matches.push(range);
+  }
+  return matches;
+}
+
+
+// Text nodes the user can see: not in hidden elements, collapsed <details>, scripts or styles.
+function visibleTextNodes() {
+  const visible = new Map();
+  const isVisible = (el) => {
+    if (!visible.has(el)) visible.set(el, el.checkVisibility({ visibilityProperty: true }));
+    return visible.get(el);
+  };
+  const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const el = node.parentElement;
+      if (!el || SKIPPED_TEXT_PARENTS.has(el.tagName)) return NodeFilter.FILTER_REJECT;
+      return isVisible(el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  return nodes;
+}
+
+
+// Index of the first match at or below page position y; the first match if none is.
+function firstMatchAfter(y) {
+  const i = searchMatches.findIndex(range => range.getBoundingClientRect().top + window.scrollY >= y);
+  return i === -1 ? 0 : i;
+}
+
+
+function scrollToCurrentMatch() {
+  const range = searchMatches[searchIndex];
+  const bottom = window.innerHeight - (searchBar ? searchBar.host.offsetHeight : 0);
+  const inView = (r) => r.top >= 0 && r.bottom <= bottom && r.left >= 0 && r.right <= window.innerWidth;
+  let rect = range.getBoundingClientRect();
+  if (inView(rect)) return;
+  const dx = rect.left < 0 || rect.right > window.innerWidth ? rect.left - window.innerWidth / 2 : 0;
+  window.scrollBy({ left: dx, top: rect.top - bottom / 2, behavior: 'instant' });
+  rect = range.getBoundingClientRect();
+  // Still out of view: it's inside an element that scrolls on its own.
+  if (!inView(rect)) range.startContainer.parentElement?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+}
+
+
+function selectCurrentMatch() {
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(searchMatches[searchIndex].cloneRange());
+}
+
+
+function showSearchHighlights() {
+  if (!window.CSS?.highlights || typeof Highlight === 'undefined') return;
+  addSearchHighlightStyle();
+  const all = new Highlight();
+  for (const range of searchMatches) all.add(range);
+  const current = new Highlight(searchMatches[searchIndex]);
+  current.priority = 1;
+  CSS.highlights.set('vimnav-search', all);
+  CSS.highlights.set('vimnav-search-current', current);
+}
+
+
+function hideSearchHighlights() {
+  if (!window.CSS?.highlights) return;
+  CSS.highlights.delete('vimnav-search');
+  CSS.highlights.delete('vimnav-search-current');
+}
+
+
+function addSearchHighlightStyle() {
+  if (document.getElementById('vimnav-search-style')) return;
+  const style = document.createElement('style');
+  style.id = 'vimnav-search-style';
+  style.textContent = `
+    ::highlight(vimnav-search) { background-color: #ffeb3b; color: black; }
+    ::highlight(vimnav-search-current) { background-color: #ff9632; color: black; }`;
+  document.documentElement.appendChild(style);
 }
