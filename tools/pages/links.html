@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Links page</title>
+  <style>
+    body { font: 16px/1.5 sans-serif; margin: 2rem; }
+    nav { display: flex; gap: 1rem; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
+    .spacer { height: 1500px; }
+  </style>
+</head>
+<body>
+  <h1>Links page</h1>
+  <nav>
+    <a href="long.html">Long page</a>
+    <a href="form.html">Form page</a>
+    <a href="inner-scroll.html">Inner scroll page</a>
+  </nav>
+  <h2>Special links</h2>
+  <ul>
+    <li><a href="#section-b">Same-page anchor</a></li>
+    <li><a href="long.html" target="_blank">Opens in new tab (target=_blank)</a></li>
+    <li><a id="js-link" href="#" onclick="document.title = 'clicked'; return false;">Link handled by JavaScript</a></li>
+    <li><a>Anchor without href</a></li>
+    <li><a href="long.html" style="display: none">Hidden link</a></li>
+  </ul>
+  <h2>Grid of links</h2>
+  <div class="grid">
+    <a href="long.html?1">Item 1</a><a href="long.html?2">Item 2</a><a href="long.html?3">Item 3</a><a href="long.html?4">Item 4</a>
+    <a href="long.html?5">Item 5</a><a href="long.html?6">Item 6</a><a href="long.html?7">Item 7</a><a href="long.html?8">Item 8</a>
+    <a href="long.html?9">Item 9</a><a href="long.html?10">Item 10</a><a href="long.html?11">Item 11</a><a href="long.html?12">Item 12</a>
+    <a href="long.html?13">Item 13</a><a href="long.html?14">Item 14</a><a href="long.html?15">Item 15</a><a href="long.html?16">Item 16</a>
+    <a href="long.html?17">Item 17</a><a href="long.html?18">Item 18</a><a href="long.html?19">Item 19</a><a href="long.html?20">Item 20</a>
+    <a href="long.html?21">Item 21</a><a href="long.html?22">Item 22</a><a href="long.html?23">Item 23</a><a href="long.html?24">Item 24</a>
+    <a href="long.html?25">Item 25</a><a href="long.html?26">Item 26</a><a href="long.html?27">Item 27</a><a href="long.html?28">Item 28</a>
+  </div>
+  <div class="spacer"></div>
+  <h2 id="section-b">Section B</h2>
+  <p><a href="long.html?offscreen">Offscreen link</a></p>
+</body>
+</html>

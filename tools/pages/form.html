@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Form page</title>
+  <style>
+    body { font: 16px/1.5 sans-serif; margin: 2rem; }
+    label { display: block; margin: 1rem 0 .25rem; }
+    [contenteditable] { border: 1px solid #999; padding: .5rem; min-height: 3rem; }
+    .spacer { height: 2000px; }
+  </style>
+</head>
+<body>
+  <h1>Form page</h1>
+  <label for="search">Search input</label>
+  <input id="search" type="text">
+  <label for="notes">Textarea</label>
+  <textarea id="notes" rows="4" cols="40"></textarea>
+  <label>Contenteditable</label>
+  <div id="editor" contenteditable="true"></div>
+  <label for="choice">Select</label>
+  <select id="choice"><option>One</option><option>Two</option></select>
+  <p><a href="long.html">A link below the form</a></p>
+  <div class="spacer"></div>
+</body>
+</html>
