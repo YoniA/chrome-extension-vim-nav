@@ -171,7 +171,7 @@ async function simulateIconClick(tabId) {
 async function pageState() {
   const state = await page.evaluate(() => {
     const se = document.scrollingElement || document.documentElement;
-    const labels = [...document.querySelectorAll('.link-label')];
+    const labels = [...document.querySelectorAll('.vimnav-label')];
     const visible = labels.filter(l => getComputedStyle(l).display !== 'none');
     const active = document.activeElement;
     const scrolledElements = [...document.querySelectorAll('body *')]

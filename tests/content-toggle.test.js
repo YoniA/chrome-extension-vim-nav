@@ -44,7 +44,7 @@ describe('F-10 content script enable/disable', () => {
     const env = setup();
     env.keydown('f');
     env.message(off);
-    env.keydown('0');
+    env.keydown('a');
     assert.equal(env.clock.pendingCount(), 0);
     env.clock.advance(5000);
     assert.deepEqual(env.navigations(), []);
@@ -70,7 +70,7 @@ describe('F-10 content script enable/disable', () => {
     env.keydown('f');
     env.message(off);
     env.message(on);
-    env.keydown('1');
+    env.keydown('b');
     env.clock.advance(1000);
     assert.deepEqual(env.navigations(), [url(1)]);
   });

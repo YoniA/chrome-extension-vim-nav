@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Layout</title>
+  <!-- Every link is fully inside the 1280x800 viewport at scroll 0; the section at the bottom
+       (target of the same-page link) has none. No horizontal overflow. -->
+  <style>
+    html, body { margin: 0; }
+    body { font: 16px/1.4 Georgia, serif; }
+    .wrap { width: 640px; margin: 0 auto; padding-top: 30px; }
+    nav { display: flex; gap: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+    table { border-collapse: collapse; }
+    td { border: 1px solid #ccc; padding: 2px 6px; }
+    .btn { display: inline-block; padding: 4px 8px; border: 1px solid #444; }
+    .tight { display: inline-block; width: 90px; }
+    .right { text-align: right; }
+    .tall { height: 2500px; }
+  </style>
+</head>
+<body>
+  <a id="corner" href="target.html?id=corner" style="position:absolute; top:0; left:0">TL</a>
+  <div class="wrap">
+    <h1 id="title">Layout test <a id="h1link" href="target.html?id=h1">heading link</a></h1>
+    <p id="para">Text before an <a id="inline1" href="target.html?id=inline1">inline link</a> and more text after it,
+      then <a id="wrap1" href="target.html?id=wrap1">a longer link whose text is long enough to wrap onto the next line of this paragraph</a>
+      followed by words that would move if anything were inserted in the line.</p>
+    <nav id="nav"><a href="target.html?id=n1">One</a><a href="target.html?id=n2">Two</a><a href="target.html?id=n3">Three</a></nav>
+    <div class="grid" id="grid"><a href="target.html?id=g1">G1</a><a href="target.html?id=g2">G2</a><a href="target.html?id=g3">G3</a><a href="target.html?id=g4">G4</a></div>
+    <table id="table"><tr><td><a href="target.html?id=t1">Cell 1</a></td><td><a href="target.html?id=t2">Cell 2</a></td><td>plain</td></tr></table>
+    <p><a class="btn" href="target.html?id=btn">Button</a> <span class="tight"><a href="target.html?id=tight">Tight box</a></span> end.</p>
+    <ul id="list"><li><a href="target.html?id=li1">List one</a></li><li><a href="target.html?id=li2">List two</a></li></ul>
+    <p id="jump-p"><a id="jump" href="#section">Jump to section</a></p>
+  </div>
+  <div class="right"><a id="right-edge" href="target.html?id=right">R</a></div>
+  <div class="tall"></div>
+  <h2 id="section">Section</h2>
+  <p>End of page.</p>
+</body>
+</html>

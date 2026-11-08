@@ -3,11 +3,125 @@
 Statuses: proposed · ready · in-progress · done
 Priorities: P1 (now) · P2 (next) · P3 (later)
 
-Current focus (branch `stabilize`): stabilize the project, fix bugs, test existing features, and prepare for incremental improvements. All priorities below are proposed and await approval.
+Current focus (branch `stabilize`): stabilize the project, fix bugs, test existing features, and prepare for incremental improvements. Priorities marked "(proposed)" await approval; the others are approved.
+
+Branch `fix-labels` (in scope, per project owner decisions): F-1 (letter label sequence), F-12 (label appearance), B-12 (label only visible links, without shifting layout).
 
 ## In progress
 
 ## Ready
+
+### F-1 Letter link labels
+Type: feature · Priority: P2 · Status: ready
+
+As a keyboard user, I want link labels made of letters instead of numbers, so that I can type them without leaving the home row.
+
+Acceptance criteria:
+- [ ] Labels use lowercase letters only (`a`–`z`); no digits, uppercase letters or other characters.
+- [ ] Labels are assigned to labeled links in document order, in the sequence a…z, then aa, ab … zz, then aaa, aab … zzz, and so on (bijective base-26).
+- [ ] Examples: link 1 is `a`, 26 is `z`, 27 is `aa`, 52 is `az`, 53 is `ba`, 702 is `zz`, 703 is `aaa`, 18278 is `zzz`, 18279 is `aaaa`.
+- [ ] The sequence has no upper limit: past `zzz` it continues `aaaa`, `aaab` … and longer as needed, so every labeled link gets a label however many links the page has.
+- [ ] Labels are unique within one link-mode session for any number of links (e.g. a test with tens of thousands of links finds no duplicates).
+- [ ] After typing a label's letters and waiting 1000 ms with no further key, the matching link is followed (the existing 1 s wait stays).
+- [ ] Typing `a` then `a` less than 1000 ms apart follows the link labeled `aa`, not the one labeled `a`.
+- [ ] Only lowercase input matches labels. An uppercase letter typed in link mode (with Shift or Caps Lock) is ignored: it does not match a label and is not added to the typed label.
+- [ ] With label `a` present, typing `A` and waiting 1000 ms follows nothing; typing `A` then `a` follows the link labeled `a`.
+- [ ] Label letters do not trigger normal commands while in link mode.
+- [ ] Label sequence generation is covered by automated tests, including the examples above.
+
+Notes: Sequence and lowercase-only matching decided by the project owner (branch `fix-labels`). Because `a` is a prefix of `aa`, the 1 s wait before following a label is kept; F-2 (prefix-free labels) was not chosen. Depends on B-10 and C-4 (not yet done). Which links are labeled (visible links only, so the first visible link is `a`): B-12. Appearance of labels: F-12.
+
+### F-12 Link label appearance
+Type: feature · Priority: P2 · Status: ready
+
+As a keyboard user, I want each link label to look like a small, highlighted tag above its link, so that I can spot labels quickly and see which link each belongs to.
+
+Acceptance criteria:
+- [ ] Each label is shown above and after its link like a superscript: its left edge is at the right end of the link's last line, and it is raised so that at most 25% of its height overlaps the link's text.
+- [ ] Labels stay fully inside the viewport: near the top or right edge a label moves inward (and only then may cover part of its link).
+- [ ] Label text is smaller than the text of its link.
+- [ ] Each label has a yellow background.
+- [ ] Each label has rounded corners.
+- [ ] Labels are readable on any page: on a page with a dark background, a page with a light/yellow background, and a page whose CSS restyles generic elements (e.g. all `span`s), labels still show legible text on a yellow background with rounded corners.
+
+Notes: Project owner requirement (branch `fix-labels`). Labels must not shift the page layout; that is tracked in B-12 and should be checked together. The current 1px black border (F-7) is neither required nor forbidden by this item. Related: F-1.
+
+### B-12 Label only visible links, without shifting layout
+Type: bug · Priority: P2 (proposed) · Status: ready
+
+Current behavior: Labels are inserted into the page next to each link, which pushes content around and can break layouts. Every `<a>` element is labeled, including hidden, off-screen and href-less ones, so labels grow long and many are useless.
+Expected behavior: When link mode starts, only links visible in the viewport get labels, and showing or removing labels never moves page content.
+
+Acceptance criteria:
+- [ ] When link mode starts, a link fully inside the viewport and visible gets a label.
+- [ ] Links with `display: none`, `visibility: hidden`, or zero width or height (themselves or through an ancestor) get no label.
+- [ ] `<a>` elements without an `href` attribute get no label.
+- [ ] Links fully outside the viewport (scrolled out of view above, below, left or right) get no label.
+- [ ] Which links are labeled is decided when link mode starts. Scrolling during link mode does not add labels.
+- [ ] F-1 labels go to the labeled (visible) links only, in document order: the first visible link is `a`, the second `b`, and so on. Hidden, href-less and off-screen links do not use up labels.
+- [ ] While labels are shown, every page element keeps the position and size it had before link mode started.
+- [ ] The page's scrollable width and height and the scroll position are the same before link mode, while labels are shown, and after the labels are removed (Escape or following a same-page link).
+
+Notes: Project owner decision (branch `fix-labels`). Split from the original B-12. Partial visibility, covered links, placeholder hrefs and non-link elements are in B-16. Label look: F-12. Removing labels relies on B-8/B-9 (currently Escape only hides them). The criterion that scrolling adds no labels follows from "at the moment link mode starts" in the owner's decision.
+
+### F-13 Close the current tab with x
+Type: feature · Priority: P3 (proposed) · Status: ready
+
+As a user, I want to close the current (active) tab by pressing `x`, so that I can close pages without the mouse or browser shortcuts.
+
+Acceptance criteria:
+- [ ] While VimNav is ON in the active tab, pressing lowercase `x` closes that tab, with no confirmation prompt.
+- [ ] Only the active tab closes; other tabs and windows are unchanged.
+- [ ] If it is the last tab in its window, `x` closes it, which closes the window (same as Cmd/Ctrl+W).
+- [ ] On a pinned tab, `x` does nothing and the tab stays open.
+- [ ] Holding `x` down closes only one tab: repeated keydowns from key auto-repeat are ignored, including in the tab that becomes active next.
+- [ ] While VimNav is OFF, pressing `x` does nothing and the tab stays open.
+- [ ] Uppercase `X` (Shift or Caps Lock) does not close the tab; it reopens the last closed tab (F-14).
+
+Notes: Requested by the project owner, who also answered its open questions. Not part of branch `fix-labels`. Must not ship before B-1, B-2 and B-10: `x` must not close the tab while typing in text fields (B-1), with Ctrl/Cmd/Alt held, e.g. Cmd/Ctrl+X cut (B-2), or when typed as label input in link mode (B-10, F-1). "ON" means commands actually work in that tab (B-3, B-4). Reopen with `X`: F-14.
+
+### F-14 Reopen the last closed tab with X
+Type: feature · Priority: P3 (proposed) · Status: ready
+
+As a user, I want to reopen the most recently closed tab by pressing `X`, so that I can undo closing a tab (including with `x`, F-13).
+
+Acceptance criteria:
+- [ ] While VimNav is ON in the active tab, pressing uppercase `X` (Shift+x or Caps Lock) reopens the most recently closed tab, as in Vimium.
+- [ ] "Most recently closed" covers any tab the user closed, however it was closed (`x`, Cmd/Ctrl+W, mouse), not only tabs closed with `x`.
+- [ ] If the most recent thing closed was a whole window (e.g. `x` on its last tab), `X` reopens that window, same as Chrome's Cmd/Ctrl+Shift+T.
+- [ ] Pressing `X` again reopens the next most recently closed tab or window, and so on.
+- [ ] Holding `X` down reopens only one tab or window: repeated keydowns from key auto-repeat are ignored, as in F-13.
+- [ ] With nothing to reopen, `X` does nothing.
+- [ ] While VimNav is OFF, `X` does nothing.
+- [ ] `X` never closes a tab.
+
+Notes: Project owner decisions; split from F-13 to keep both items small. Not part of branch `fix-labels`. Same constraints as F-13: must not ship before B-1, B-2 and B-10.
+
+### F-15 Search the page with /
+Type: feature · Priority: P3 (proposed) · Status: ready
+
+As a keyboard-only user, I want to press `/`, type text and jump between its matches on the page, so that I can find things without the mouse or Chrome's find bar.
+
+Acceptance criteria:
+- [ ] With VimNav ON, `/` opens a small search bar at the bottom of the page with the cursor in it; the `/` itself is not typed into the bar.
+- [ ] With VimNav OFF, `/` does nothing.
+- [ ] Each `/` opens the bar empty. Pressing the Up arrow in the bar fills in the previous query.
+- [ ] While the bar is open, typed keys go into the bar and run no VimNav command (e.g. typing `j` does not scroll).
+- [ ] As the user types, all matches are highlighted, and the page scrolls to the first match after the scroll position when `/` was pressed.
+- [ ] The bar shows a "current / total" counter (e.g. "3 / 17") while there are matches.
+- [ ] With no match, the bar shows "no match" and the page does not move.
+- [ ] Smartcase: a query with no uppercase letter matches case-insensitively ("foo" matches "Foo" and "FOO"); a query with an uppercase letter matches case-sensitively ("Foo" matches "Foo" only).
+- [ ] The query is plain text: characters such as `.`, `*` or `(` match themselves, not as regular-expression syntax.
+- [ ] Only visible text is searched: text in hidden elements (e.g. `display: none`) or collapsed content (e.g. a closed `<details>`) is not matched.
+- [ ] Enter closes the bar and keeps the current match selected and highlighted.
+- [ ] After a search, `n` jumps to the next match and `N` to the previous one; after the last match `n` wraps to the first, and before the first `N` wraps to the last.
+- [ ] Before any search, `n` and `N` do nothing.
+- [ ] Escape in the bar cancels: the bar closes, highlights are removed, and the page returns to the scroll position it had when `/` was pressed.
+- [ ] Escape after a search (bar closed) clears the highlights.
+- [ ] After Escape has cleared the highlights, `n`/`N` still jump to matches of the last search and bring the highlights back (like Vim's `:noh`).
+- [ ] Chrome's own Cmd/Ctrl+F find bar is unaffected.
+
+Notes: Owner-approved behavior, including answers to its open questions; not part of branch `fix-labels`. Depends on B-1 (keys typed in the search bar must not trigger commands) and B-2 (modifier combos, including Cmd/Ctrl+F). `n`/`N` are currently unused. In link mode `/`, `n` and `N` count as label input (B-10). On sites that use `/` themselves (e.g. GitHub, YouTube), the conflict is B-14. Up arrow recalls only the previous query; a longer query history is not part of this item.
 
 ## Proposed
 
@@ -166,18 +280,15 @@ Acceptance criteria:
 
 Notes: Open question: should there be a way to deliberately open a link in a new tab (e.g. a separate key)? If yes, that is a new feature item.
 
-### B-12 Link labels shift layout and label hidden links
+### B-16 Link mode: labeling edge cases not covered by B-12
 Type: bug · Priority: P3 (proposed) · Status: proposed
 
-Current behavior: Labels are inserted into the page next to each link, which pushes content around and can break layouts. Every `<a>` element is labeled, including hidden, off-screen and href-less ones, so label numbers grow large and many labels are useless.
-Expected behavior: Labels appear over or next to links without moving page content, and only links the user can see are labeled.
+Split from B-12. B-12 (branch `fix-labels`) labels only visible links with an href and stops labels from shifting layout. These remaining cases are undecided.
 
 Acceptance criteria:
-- [ ] Entering link mode does not change the position of page content.
-- [ ] Links that are hidden, outside the visible viewport, or have no destination get no label.
-- [ ] Labels are readable regardless of the page's own styles.
+- [ ] To be written once the open questions are decided.
 
-Notes: Open question: should clickable non-link elements (buttons, inputs) also get labels? If yes, that is a separate feature.
+Notes: Open questions: Does a link only partly inside the viewport get a label? Does a link that is in the viewport but covered by another element (e.g. an overlay or sticky header) get a label? Do links with a placeholder destination (`href=""`, `href="#"`, `javascript:` URLs) get labels? Should clickable non-link elements (buttons, inputs) also get labels? If yes, that is a separate feature. Depends on B-12.
 
 ### B-13 Scroll commands don't work on pages with an inner scrolling element
 Type: bug · Priority: P3 (proposed) · Status: proposed
@@ -216,19 +327,6 @@ Acceptance criteria:
 
 Notes: Partly resolved by B-8; recheck after it. Second criterion depends on B-4.
 
-### F-1 Letter link labels
-Type: feature · Priority: P2 (proposed) · Status: proposed
-
-As a keyboard user, I want link labels made of letters instead of numbers, so that I can type them without leaving the home row.
-
-Acceptance criteria:
-- [ ] Labels are assigned in order a..z, then aa, ab..zz, then aaa, aab, and so on.
-- [ ] Typing a label follows the matching link (with the existing 1 s wait unless F-2 changes it).
-- [ ] Label letters do not trigger normal commands while in link mode.
-- [ ] Label sequence generation is covered by automated tests.
-
-Notes: Depends on B-10 and C-4. Open question: are labels lowercase only, and is typing case-insensitive? With this scheme "a" is a prefix of "aa", so the wait is still needed; see F-2.
-
 ### F-2 Follow links immediately with prefix-free labels
 Type: feature · Priority: P3 (proposed) · Status: proposed
 
@@ -238,7 +336,7 @@ Acceptance criteria:
 - [ ] No label is the beginning of another label.
 - [ ] The link opens as soon as a complete label is typed, with no delay.
 
-Notes: Not yet decided by the user. Conflicts with F-1's a..z, aa.. sequence (which has shared prefixes). Open questions: Is this wanted? If yes, does it replace F-1's sequence or become an option?
+Notes: Not chosen: the project owner chose F-1's a…z, aa… sequence instead, which has shared prefixes and keeps the 1 s wait. Kept for possible future reconsideration (e.g. as an option); not planned.
 
 ### C-1 Add .gitignore
 Type: chore · Priority: P2 (proposed) · Status: proposed
@@ -391,7 +489,7 @@ Acceptance criteria:
 - [x] Multi-digit labels work if each digit is typed less than 1000 ms after the previous one.
 - [x] A label for a link with an empty href does not navigate.
 
-Notes: Not in README (C-7). Known bugs: link mode and labels stay after following a link (B-8); a mismatch blocks later attempts until Escape (B-7); non-character keys are added to the typed text and label digits/keys also run normal commands (B-10); `target="_blank"` and script click handlers are ignored (B-11). F-1 and F-2 propose changes to the labels and the 1000 ms wait.
+Notes: Not in README (C-7). Known bugs: link mode and labels stay after following a link (B-8); a mismatch blocks later attempts until Escape (B-7); non-character keys are added to the typed text and label digits/keys also run normal commands (B-10); `target="_blank"` and script click handlers are ignored (B-11). F-1 changes labels to letters and keeps the 1000 ms wait (F-2 not chosen).
 
 ### F-9 Exit link mode with Escape
 Type: feature · Priority: — · Status: done

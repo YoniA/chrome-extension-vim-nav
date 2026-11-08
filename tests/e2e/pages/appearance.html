@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Label appearance</title>
+  <!-- All links are visible and well inside the viewport (room above each for its label). -->
+  <style>
+    body { font: 16px/1.6 sans-serif; margin: 80px 60px; background: #fff; color: #222; }
+    .small { font-size: 12px; }
+    .narrow { width: 160px; }
+    /* block links that fill wide grid cells: their box ends far after their text */
+    .grid { display: grid; grid-template-columns: 300px 300px; margin-top: 2em; }
+  </style>
+</head>
+<body>
+  <p>Paragraph with a <a href="target.html?id=p">normal link</a> in the text.</p>
+  <h1>Heading with a <a href="target.html?id=h1">big link</a></h1>
+  <p class="small">Small print with a <a href="target.html?id=small">small link</a>.</p>
+  <p class="narrow">Narrow box: <a href="target.html?id=wrap">a link that wraps over several lines here</a></p>
+  <p><a href="target.html?id=bold"><strong>Bold</strong> link</a></p>
+  <div class="grid"><a href="target.html?id=grid1">Grid one</a><a href="target.html?id=grid2">Grid two</a></div>
+</body>
+</html>

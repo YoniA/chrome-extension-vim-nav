@@ -5,13 +5,22 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { createFakeDocument, FakeAnchor, FakeElement } = require('./fake-dom');
+const { createFakeDocument, computedStyleOf, FakeAnchor, FakeElement, VIEWPORT } = require('./fake-dom');
 const { createFakeClock } = require('./fake-clock');
 const { createContentChrome, createBackgroundChrome } = require('./fake-chrome');
 
 const ROOT = path.join(__dirname, '..', '..');
-const CONTENT_FILE = path.join(ROOT, 'vim-scroll.js');
-const BACKGROUND_FILE = path.join(ROOT, 'background.js');
+// VIMNAV_CONTENT_FILE / VIMNAV_BACKGROUND_FILE let QA run the same tests against another copy of a
+// script (e.g. to check that new tests can pass). Normally unset: the real files are tested.
+const CONTENT_FILE = process.env.VIMNAV_CONTENT_FILE
+  ? path.resolve(process.env.VIMNAV_CONTENT_FILE)
+  : path.join(ROOT, 'vim-scroll.js');
+const BACKGROUND_FILE = process.env.VIMNAV_BACKGROUND_FILE
+  ? path.resolve(process.env.VIMNAV_BACKGROUND_FILE)
+  : path.join(ROOT, 'background.js');
+
+// Test contract: a link label is an element with this class whose text content is the label.
+const LABEL_CLASS = 'vimnav-label';
 
 function runFile(file, context) {
   // Using the real path as filename lets --experimental-test-coverage attribute coverage.
@@ -24,21 +33,39 @@ function copy(value) {
 
 // Content-script environment (one browser tab).
 //   hrefs: list of href values for <a> elements appended to <body>; null/undefined = no href attribute
-function createContentEnv({ hrefs = [], scrollHeight = 5000 } = {}) {
+//   groupSize: if set, links are put in <div>s of this many links each (still in document order),
+//     which keeps DOM insertions cheap in the fake for pages with tens of thousands of links.
+// Every link is visible and inside the viewport by default (see fake-dom.js).
+function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize } = {}) {
   const document = createFakeDocument({ scrollHeight });
-  const links = hrefs.map((href) => document.body.appendChild(new FakeAnchor(href)));
+  let parent = document.body;
+  const links = hrefs.map((href, i) => {
+    if (groupSize && i % groupSize === 0) parent = document.body.appendChild(new FakeElement('div'));
+    return parent.appendChild(new FakeAnchor(href));
+  });
   const clock = createFakeClock();
   const chrome = createContentChrome();
 
   const scrollCalls = [];
   const historyCalls = [];
+  const getComputedStyle = (el) => computedStyleOf(el);
   const window = {
     location: { href: 'https://example.test/start' },
     scrollBy(...args) {
       scrollCalls.push(copy(args));
     },
     addEventListener() {},
+    removeEventListener() {},
+    innerWidth: VIEWPORT.width,
+    innerHeight: VIEWPORT.height,
+    scrollX: 0,
+    scrollY: 0,
+    pageXOffset: 0,
+    pageYOffset: 0,
+    devicePixelRatio: 1,
+    getComputedStyle,
   };
+  document.defaultView = window;
   const history = {
     back() {
       historyCalls.push('back');
@@ -48,6 +75,7 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000 } = {}) {
     },
   };
 
+  // Bare globals that a browser resolves on window (innerHeight, getComputedStyle, ...).
   const context = vm.createContext({
     window,
     document,
@@ -55,6 +83,14 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000 } = {}) {
     chrome,
     setTimeout: clock.setTimeout,
     clearTimeout: clock.clearTimeout,
+    getComputedStyle,
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+    scrollX: 0,
+    scrollY: 0,
+    pageXOffset: 0,
+    pageYOffset: 0,
+    devicePixelRatio: 1,
   });
 
   const env = {
@@ -106,11 +142,25 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000 } = {}) {
       for (const l of ls) l(msg, {}, () => {});
       return ls.length > 0;
     },
+    // All VimNav label elements in the page (class vimnav-label), in DOM order.
     labels() {
-      return document.getElementsByClassName('link-label');
+      return document.getElementsByClassName(LABEL_CLASS);
     },
+    // Labels not hidden by inline display:none / visibility:hidden / the hidden attribute
+    // on themselves or an ancestor. Removed labels are not in labels() at all.
     visibleLabels() {
-      return env.labels().filter((l) => !/display:\s*none/.test(l.cssText));
+      return env.labels().filter((l) => {
+        for (let n = l; n && n.nodeType === 1; n = n.parentNode) {
+          const d = n.style.getPropertyValue('display');
+          const v = n.style.getPropertyValue('visibility');
+          if (d === 'none' || v === 'hidden' || n.hidden) return false;
+        }
+        return true;
+      });
+    },
+    // Text of each visible label.
+    labelTexts() {
+      return env.visibleLabels().map((l) => l.textContent);
     },
   };
 
@@ -169,6 +219,7 @@ module.exports = {
   flush,
   FakeAnchor,
   FakeElement,
+  LABEL_CLASS,
   CONTENT_FILE,
   BACKGROUND_FILE,
 };

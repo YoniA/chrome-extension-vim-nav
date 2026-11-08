@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>hostile CSS</title>
+  <!-- Page content uses no div/span, so rules aimed at generic elements only hit what VimNav adds. -->
+  <style>
+    body { font: 16px/1.6 sans-serif; margin: 80px 60px; }
+    nav a { margin-right: 16px; }
+    /* Generic rules a site might have, aimed at elements VimNav might use for labels. */
+    * { background: #202020; color: #202020; border-radius: 0; text-shadow: none; }
+    html, body { background: #202020; color: #ccc; }
+    a { color: #8cf; }
+    span, div, mark, b, i, em, strong, small, sup, sub, kbd, code, label, abbr, u, s, ins {
+      display: none; visibility: hidden; opacity: 0;
+      font-size: 48px; line-height: 0; letter-spacing: -10px;
+      padding: 30px; margin: -40px; width: 0; height: 0; overflow: hidden;
+      transform: scale(0); filter: invert(1); clip-path: inset(50%);
+      position: static; z-index: -1;
+      background: #202020; color: #202020; border-radius: 0;
+    }
+  </style>
+</head>
+<body>
+  <header><h1>Readability: hostile CSS</h1></header>
+  <nav><a href="target.html?id=n1">Home</a> <a href="target.html?id=n2">About</a></nav>
+  <main>
+    <article>
+      <p>Paragraph with a <a href="target.html?id=p1">link in text</a> and another <a href="target.html?id=p2">second link</a>.</p>
+      <ul><li><a href="target.html?id=li">List link</a></li></ul>
+      <section><p><a href="target.html?id=sec">Section link</a></p></section>
+    </article>
+  </main>
+</body>
+</html>

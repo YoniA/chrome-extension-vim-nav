@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Off-screen links</title>
+  <!-- Tests scroll to (1500, 1500); the viewport is then x 1500..2780, y 1500..2300. -->
+  <style>
+    html, body { margin: 0; }
+    body { width: 4000px; height: 4000px; position: relative; font: 16px/1.5 sans-serif; }
+    a { position: absolute; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <a id="above" href="target.html?id=above" style="left:1600px; top:1000px">Above</a>
+  <a id="left" href="target.html?id=left" style="left:1000px; top:1700px">Left</a>
+  <a id="in1" href="target.html?id=in1" style="left:1600px; top:1700px">In view 1</a>
+  <a id="below" href="target.html?id=below" style="left:1600px; top:2700px">Below</a>
+  <a id="right" href="target.html?id=right" style="left:3000px; top:1700px">Right</a>
+  <a id="in2" href="target.html?id=in2" style="left:2000px; top:2000px">In view 2</a>
+</body>
+</html>

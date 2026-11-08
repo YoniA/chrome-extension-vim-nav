@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Visibility cases</title>
+  <!-- ?case=<name>: one hidden or href-less link between two visible links (B-12). -->
+  <style>body { font: 16px/1.5 sans-serif; margin: 40px; }</style>
+</head>
+<body>
+  <p><a id="v1" href="target.html?id=v1">Visible one</a></p>
+  <div id="case"></div>
+  <p><a id="v2" href="target.html?id=v2">Visible two</a></p>
+  <script>
+    const H = 'href="target.html?id=hidden"';
+    const cases = {
+      'display-none': `<a ${H} style="display:none">Hidden</a>`,
+      'display-none-ancestor': `<section style="display:none"><p><a ${H}>Hidden</a></p></section>`,
+      'visibility-hidden': `<a ${H} style="visibility:hidden">Hidden</a>`,
+      'visibility-hidden-ancestor': `<section style="visibility:hidden"><p><a ${H}>Hidden</a></p></section>`,
+      'zero-width': `<a ${H} style="display:inline-block;width:0;overflow:hidden;white-space:nowrap">Hidden</a>`,
+      'zero-height': `<a ${H} style="display:inline-block;height:0;overflow:hidden">Hidden</a>`,
+      'empty-link': `<a ${H}></a>`,
+      'zero-width-ancestor': `<section style="width:0;overflow:hidden;white-space:nowrap"><a ${H}>Hidden</a></section>`,
+      'zero-height-ancestor': `<section style="height:0;overflow:hidden"><a ${H}>Hidden</a></section>`,
+      'no-href': `<a>No href</a> <a name="anchor-only">Named anchor</a>`,
+    };
+    const name = new URLSearchParams(location.search).get('case');
+    if (!(name in cases)) throw new Error('unknown case ' + name);
+    document.getElementById('case').innerHTML = cases[name];
+  </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>dark page</title>
+  <!-- Page content uses no div/span, so rules aimed at generic elements only hit what VimNav adds. -->
+  <style>
+    html, body { background: #111; color: #ddd; }
+    body { font: 16px/1.6 sans-serif; margin: 80px 60px; }
+    a { color: #8cf; }
+    nav a { margin-right: 16px; }
+  </style>
+</head>
+<body>
+  <header><h1>Readability: dark page</h1></header>
+  <nav><a href="target.html?id=n1">Home</a> <a href="target.html?id=n2">About</a></nav>
+  <main>
+    <article>
+      <p>Paragraph with a <a href="target.html?id=p1">link in text</a> and another <a href="target.html?id=p2">second link</a>.</p>
+      <ul><li><a href="target.html?id=li">List link</a></li></ul>
+      <section><p><a href="target.html?id=sec">Section link</a></p></section>
+    </article>
+  </main>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Visible links of many kinds</title>
+  <style>
+    body { font: 16px/1.5 sans-serif; margin: 40px; }
+    nav { display: flex; gap: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 120px); gap: 4px; }
+    .btn { display: inline-block; padding: 4px 10px; border: 1px solid #333; border-radius: 4px; }
+    .fixed { position: fixed; right: 40px; bottom: 40px; }
+    .abs { position: absolute; left: 700px; top: 120px; }
+  </style>
+</head>
+<body>
+  <!-- Not labeled: hidden and href-less links come first, so the first visible link must still be "a". -->
+  <a href="target.html?id=hidden-first" style="display:none">Hidden first</a>
+  <a>No href first</a>
+  <p>Some text with an <a id="first" href="target.html?id=first">inline link</a> in it.</p>
+  <nav><a href="target.html?id=nav1">Nav 1</a><a href="target.html?id=nav2">Nav 2</a></nav>
+  <div class="grid"><a href="target.html?id=g1">Grid 1</a><a href="target.html?id=g2">Grid 2</a><a href="target.html?id=g3">Grid 3</a></div>
+  <table><tr><td><a href="target.html?id=td">Table cell</a></td></tr></table>
+  <ul><li><a href="target.html?id=li"><b>Bold</b> list link</a></li></ul>
+  <p><a class="btn" href="target.html?id=btn">Button link</a></p>
+  <p><a href="target.html?id=img"><img alt="" width="40" height="20" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20'%3E%3Crect width='40' height='20' fill='teal'/%3E%3C/svg%3E"></a></p>
+  <a class="abs" href="target.html?id=abs">Absolute</a>
+  <a id="last" class="fixed" href="target.html?id=last">Fixed</a>
+</body>
+</html>
