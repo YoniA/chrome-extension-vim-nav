@@ -17,9 +17,10 @@ function assertBadgesGlobal(bg) {
 }
 
 describe('loading the service worker', () => {
-  test('registers exactly one listener for install, startup, icon click and storage change', () => {
+  test('registers exactly one listener for install, startup, icon click, storage change and messages', () => {
     const bg = createBackgroundEnv();
     const c = bg.chrome;
+    assert.equal(c.runtime.onMessage.listeners.length, 1);
     assert.equal(c.runtime.onInstalled.listeners.length, 1);
     assert.equal(c.runtime.onStartup.listeners.length, 1);
     assert.equal(c.action.onClicked.listeners.length, 1);

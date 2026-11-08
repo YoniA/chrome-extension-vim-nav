@@ -66,20 +66,22 @@ Acceptance criteria:
 Notes: Project owner decision (branch `fix-labels`). Split from the original B-12. Partial visibility, covered links, placeholder hrefs and non-link elements are in B-16. Label look: F-12. Removing labels relies on B-8/B-9 (currently Escape only hides them). The criterion that scrolling adds no labels follows from "at the moment link mode starts" in the owner's decision.
 
 ### F-13 Close the current tab with x
-Type: feature · Priority: P3 (proposed) · Status: ready
+Type: feature · Priority: P3 · Status: done
 
 As a user, I want to close the current (active) tab by pressing `x`, so that I can close pages without the mouse or browser shortcuts.
 
 Acceptance criteria:
-- [ ] While VimNav is ON in the active tab, pressing lowercase `x` closes that tab, with no confirmation prompt.
-- [ ] Only the active tab closes; other tabs and windows are unchanged.
-- [ ] If it is the last tab in its window, `x` closes it, which closes the window (same as Cmd/Ctrl+W).
-- [ ] On a pinned tab, `x` does nothing and the tab stays open.
-- [ ] Holding `x` down closes only one tab: repeated keydowns from key auto-repeat are ignored, including in the tab that becomes active next.
-- [ ] While VimNav is OFF, pressing `x` does nothing and the tab stays open.
-- [ ] Uppercase `X` (Shift or Caps Lock) does not close the tab; it reopens the last closed tab (F-14).
+- [x] While VimNav is ON in the active tab, pressing lowercase `x` closes that tab, with no confirmation prompt.
+- [x] Only the active tab closes; other tabs and windows are unchanged.
+- [x] If it is the last tab in its window, `x` closes it, which closes the window (same as Cmd/Ctrl+W).
+- [x] On a pinned tab, `x` does nothing and the tab stays open.
+- [x] Holding `x` down closes only one tab: repeated keydowns from key auto-repeat are ignored, including in the tab that becomes active next.
+- [x] While VimNav is OFF, pressing `x` does nothing and the tab stays open.
+- [x] Uppercase `X` (Shift or Caps Lock) does not close the tab; it reopens the last closed tab (F-14).
 
 Notes: Requested by the project owner, who also answered its open questions. Not part of branch `fix-labels`. Must not ship before B-1, B-2 and B-10: `x` must not close the tab while typing in text fields (B-1), with Ctrl/Cmd/Alt held, e.g. Cmd/Ctrl+X cut (B-2), or when typed as label input in link mode (B-10, F-1). "ON" means commands actually work in that tab (B-3, B-4). Reopen with `X`: F-14.
+
+Done: `x` asks the service worker, which closes the tab the key was pressed in with `tabs.remove` (no new permission), unless it is pinned. Auto-repeat keydowns are ignored. Tests: `tests/close-tab.test.js`, `tests/e2e/f13-close-tab.test.js`. Closing a window's last tab is Chrome's own `tabs.remove` behavior and is not tested separately.
 
 ### F-14 Reopen the last closed tab with X
 Type: feature · Priority: P3 (proposed) · Status: ready

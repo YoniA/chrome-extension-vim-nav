@@ -89,6 +89,10 @@ document.addEventListener('keydown', (e) => {
 				linkMode = true;
 				labelAllLinks();
 				break;
+			case 'x':
+				// Holding x closes one tab: auto-repeat keydowns (also in the next active tab) are ignored.
+				if (!e.repeat) askBackground({ action: 'closeTab' });
+				break;
 		}
   }
 
@@ -98,6 +102,15 @@ document.addEventListener('keydown', (e) => {
 	};
 
 });
+
+
+// Tab actions need the service worker. Fails quietly if it can't be reached (e.g. this page's
+// script is left over from before the extension was reloaded).
+function askBackground(msg) {
+  try {
+    chrome.runtime.sendMessage(msg).catch(() => {});
+  } catch {}
+}
 
 
 // Input types that don't take typed text; any other <input> type does.

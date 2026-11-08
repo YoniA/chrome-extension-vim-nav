@@ -24,6 +24,12 @@ chrome.runtime.onStartup.addListener(showState);
 
 chrome.action.onClicked.addListener(toggleExtension);
 
+// x in a page (F-13): close the tab it was pressed in, unless it is pinned. Closing a window's
+// last tab closes the window, as Cmd/Ctrl+W does.
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg?.action === 'closeTab' && sender.tab && !sender.tab.pinned) chrome.tabs.remove(sender.tab.id);
+});
+
 // Also covers a change synced from another device.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync' && 'extensionState' in changes) showState();

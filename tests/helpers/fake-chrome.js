@@ -44,9 +44,19 @@ function createFakeStorage(data = {}, calls = null) {
 
 // chrome object as seen by the content script.
 //   storage: a createFakeStorage() to share with the service worker / other tabs (default: own, empty)
-function createContentChrome({ storage = createFakeStorage() } = {}) {
+//   sendMessage(msg): what runtime.sendMessage does (default: resolves); every message is also
+//     recorded in `sentMessages`
+function createContentChrome({ storage = createFakeStorage(), sendMessage } = {}) {
+  const sentMessages = [];
   return {
-    runtime: { onMessage: createEvent() },
+    sentMessages,
+    runtime: {
+      onMessage: createEvent(),
+      sendMessage(msg) {
+        sentMessages.push(copy(msg));
+        return sendMessage ? sendMessage(msg) : Promise.resolve();
+      },
+    },
     storage: { sync: storage.sync, onChanged: storage.onChanged },
   };
 }
@@ -54,7 +64,8 @@ function createContentChrome({ storage = createFakeStorage() } = {}) {
 // chrome object as seen by the service worker.
 //   storedState: initial value of extensionState in sync storage (undefined = not stored)
 //   globalBadge: initial badge text
-// It has no scripting, tabs or webNavigation API: the extension no longer uses them, so a call fails.
+// It has no scripting or webNavigation API and only tabs.remove: the extension uses nothing else,
+// so any other call fails.
 function createBackgroundChrome({ storedState, globalBadge = '' } = {}) {
   const calls = [];
   const data = {};
@@ -64,7 +75,12 @@ function createBackgroundChrome({ storedState, globalBadge = '' } = {}) {
   const state = { globalBadge };
 
   const chrome = {
-    runtime: { onInstalled: createEvent(), onStartup: createEvent() },
+    runtime: { onInstalled: createEvent(), onStartup: createEvent(), onMessage: createEvent() },
+    tabs: {
+      async remove(tabId) {
+        calls.push(['tabs.remove', copy(tabId)]);
+      },
+    },
     action: {
       onClicked: createEvent(),
       async setBadgeText(details) {

@@ -38,7 +38,8 @@ function copy(value) {
 //   storedState: extensionState in sync storage when the tab loads (undefined = not stored)
 //   storage: a createFakeStorage() shared with the service worker or other tabs (overrides storedState)
 // Every link is visible and inside the viewport by default (see fake-dom.js).
-function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize, storedState, storage } = {}) {
+//   sendMessage: implementation of chrome.runtime.sendMessage (default resolves)
+function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize, storedState, storage, sendMessage } = {}) {
   const document = createFakeDocument({ scrollHeight });
   let parent = document.body;
   const links = hrefs.map((href, i) => {
@@ -47,7 +48,7 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize, storedSt
   });
   const clock = createFakeClock();
   if (!storage) storage = createFakeStorage(storedState === undefined ? {} : { extensionState: storedState });
-  const chrome = createContentChrome({ storage });
+  const chrome = createContentChrome({ storage, sendMessage });
 
   const scrollCalls = [];
   const historyCalls = [];
@@ -167,6 +168,10 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize, storedSt
         env.keydown(k);
       });
     },
+    // Messages the script sent to the service worker (chrome.runtime.sendMessage), in order.
+    sentMessages() {
+      return chrome.sentMessages.slice();
+    },
     // Changes extensionState in sync storage, as the icon (or another device) would.
     // Every tab sharing this storage is notified.
     setStoredState(value) {
@@ -230,6 +235,11 @@ function createBackgroundEnv(options = {}) {
     },
     async startup() {
       await Promise.all(c.runtime.onStartup.listeners.map((l) => l()));
+      return flush();
+    },
+    // A message from a tab's content script; sender.tab is that tab.
+    async message(msg, sender = { tab: { id: 1, pinned: false } }) {
+      await Promise.all(c.runtime.onMessage.listeners.map((l) => l(msg, sender, () => {})));
       return flush();
     },
     async click(tab = { id: 1 }) {
