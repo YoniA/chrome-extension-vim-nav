@@ -102,25 +102,49 @@ describe('F-1 label sequence', () => {
 });
 
 describe('F-1 following a letter label', () => {
-  test('a label is followed exactly 1000 ms after its last letter, not at 999 ms', () => {
+  test('a label that no longer label starts with is followed immediately, with no wait', () => {
     const env = setup(3);
     env.keydown('f');
     env.keydown('c');
+    assert.deepEqual(env.navigations(), [url(2)]);
+    assert.equal(env.clock.pendingCount(), 0);
+  });
+
+  test('every label opens immediately when there are 26 links or fewer', () => {
+    for (const n of [1, 13, 26]) {
+      const env = setup(26);
+      env.keydown('f');
+      env.keydown(expectedLabel(n));
+      assert.deepEqual(env.navigations(), [url(n - 1)], `label ${expectedLabel(n)}`);
+    }
+  });
+
+  test('a label that starts a longer label is followed 1000 ms after its last letter, not at 999 ms', () => {
+    const env = setup(27); // "a" and "aa" both exist
+    env.keydown('f');
+    env.keydown('a');
     env.clock.advance(999);
     assert.deepEqual(env.navigations(), []);
     env.clock.advance(1);
-    assert.deepEqual(env.navigations(), [url(2)]);
+    assert.deepEqual(env.navigations(), [url(0)]);
   });
 
-  test('a then a less than 1000 ms apart follows "aa", never "a"', () => {
+  test('with 27 links, "z" (no "za") opens immediately while "a" waits for "aa"', () => {
+    const env = setup(27);
+    env.keydown('f');
+    env.keydown('z');
+    assert.deepEqual(env.navigations(), [url(25)]);
+  });
+
+  test('a then a less than 1000 ms apart follows "aa" immediately, never "a"', () => {
     const env = setup(27);
     env.keydown('f');
     env.keydown('a');
     env.clock.advance(999);
-    env.keydown('a');
-    env.clock.advance(999);
     assert.deepEqual(env.navigations(), []);
-    env.clock.advance(1);
+    env.keydown('a');
+    assert.deepEqual(env.navigations(), [url(26)]);
+    env.clock.advance(5000);
     assert.deepEqual(env.navigations(), [url(26)]);
   });
 

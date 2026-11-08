@@ -22,14 +22,15 @@ Acceptance criteria:
 - [ ] Examples: link 1 is `a`, 26 is `z`, 27 is `aa`, 52 is `az`, 53 is `ba`, 702 is `zz`, 703 is `aaa`, 18278 is `zzz`, 18279 is `aaaa`.
 - [ ] The sequence has no upper limit: past `zzz` it continues `aaaa`, `aaab` … and longer as needed, so every labeled link gets a label however many links the page has.
 - [ ] Labels are unique within one link-mode session for any number of links (e.g. a test with tens of thousands of links finds no duplicates).
-- [ ] After typing a label's letters and waiting 1000 ms with no further key, the matching link is followed (the existing 1 s wait stays).
-- [ ] Typing `a` then `a` less than 1000 ms apart follows the link labeled `aa`, not the one labeled `a`.
+- [ ] When the typed letters match a label and no longer label starts with them, that link is followed immediately (e.g. on a page with 26 or fewer labels, every label opens at once).
+- [ ] When the typed letters match a label that also starts a longer label (e.g. `a` while `aa` exists), the link is followed 1000 ms after the last letter unless another letter is typed first.
+- [ ] Typing `a` then `a` less than 1000 ms apart follows the link labeled `aa` (immediately, if no longer label starts with `aa`), not the one labeled `a`.
 - [ ] Only lowercase input matches labels. An uppercase letter typed in link mode (with Shift or Caps Lock) is ignored: it does not match a label and is not added to the typed label.
 - [ ] With label `a` present, typing `A` and waiting 1000 ms follows nothing; typing `A` then `a` follows the link labeled `a`.
 - [ ] Label letters do not trigger normal commands while in link mode.
 - [ ] Label sequence generation is covered by automated tests, including the examples above.
 
-Notes: Sequence and lowercase-only matching decided by the project owner (branch `fix-labels`). Because `a` is a prefix of `aa`, the 1 s wait before following a label is kept; F-2 (prefix-free labels) was not chosen. Depends on B-10 and C-4 (not yet done). Which links are labeled (visible links only, so the first visible link is `a`): B-12. Appearance of labels: F-12.
+Notes: Sequence and lowercase-only matching decided by the project owner (branch `fix-labels`). Because `a` is a prefix of `aa`, a 1 s wait remains only for labels that start a longer label; the project owner chose to open all other labels immediately. F-2 (prefix-free labels) was not chosen. Depends on B-10 and C-4 (not yet done). Which links are labeled (visible links only, so the first visible link is `a`): B-12. Appearance of labels: F-12.
 
 ### F-12 Link label appearance
 Type: feature · Priority: P2 · Status: ready

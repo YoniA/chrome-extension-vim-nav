@@ -85,13 +85,25 @@ function handleLinkModeKey(keyName) {
 
   linkModeBuffer += keyName;
   clearTimeout(linkModeTimeout);
-  linkModeTimeout = setTimeout(() => {
-    const url = linkHash[linkModeBuffer];
-    if (url && url.length > 0) {
-      window.location.href = url;
-      resetLinkModeState();
-    }
-  }, 1000);
+
+  // Follow at once unless a longer label starts with the typed text (e.g. "a" while "aa" exists);
+  // then wait a second for more letters.
+  const typed = linkModeBuffer;
+  const longerLabelExists = Object.keys(linkHash).some(name => name.length > typed.length && name.startsWith(typed));
+  if (longerLabelExists) {
+    linkModeTimeout = setTimeout(followTypedLabel, 1000);
+  } else {
+    followTypedLabel();
+  }
+}
+
+
+function followTypedLabel() {
+  const url = linkHash[linkModeBuffer];
+  if (url && url.length > 0) {
+    window.location.href = url;
+    resetLinkModeState();
+  }
 }
 
 

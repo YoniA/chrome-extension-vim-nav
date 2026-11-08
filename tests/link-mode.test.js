@@ -115,41 +115,40 @@ describe('F-7 enter link mode with f', () => {
 });
 
 describe('F-8 follow a link by typing its label', () => {
-  test('typing a label and waiting 1000 ms navigates to that link in the same tab', () => {
+  test('typing a label navigates to that link in the same tab', () => {
     const env = setup(3);
     env.keydown('f');
     env.keydown('c');
-    env.clock.advance(1000);
     assert.deepEqual(env.navigations(), [url(2)]);
   });
 
-  test('no navigation at 999 ms after the last keydown', () => {
-    const env = setup(3);
+  test('a label that starts a longer label: no navigation at 999 ms, navigation at 1000 ms', () => {
+    const env = setup(28); // "b" is not a prefix, but "a" is ("aa", "ab")
     env.keydown('f');
-    env.keydown('b');
+    env.keydown('a');
     env.clock.advance(999);
     assert.deepEqual(env.navigations(), []);
     env.clock.advance(1);
-    assert.deepEqual(env.navigations(), [url(1)]);
+    assert.deepEqual(env.navigations(), [url(0)]);
   });
 
   test('each keydown restarts the 1000 ms timer', () => {
-    const env = setup(28);
+    const env = setup(703); // "a" and "aa" both start longer labels ("aaa")
     env.keydown('f');
     env.keydown('a');
     env.clock.advance(600);
-    env.keydown('b');
-    env.clock.advance(600); // 1200 ms after "a", 600 ms after "b"
+    env.keydown('a');
+    env.clock.advance(600); // 1200 ms after the first "a", 600 ms after the second
     assert.deepEqual(env.navigations(), []);
     env.clock.advance(400);
-    assert.deepEqual(env.navigations(), [url(27)]); // "ab" is link 28
+    assert.deepEqual(env.navigations(), [url(26)]); // "aa" is link 27
   });
 
   test('only one label timer is pending at a time', () => {
-    const env = setup(28);
+    const env = setup(703);
     env.keydown('f');
     env.keydown('a');
-    env.keydown('b');
+    env.keydown('a');
     assert.equal(env.clock.pendingCount(), 1);
   });
 
@@ -159,7 +158,6 @@ describe('F-8 follow a link by typing its label', () => {
     env.keydown('a');
     env.clock.advance(999);
     env.keydown('b');
-    env.clock.advance(1000);
     assert.deepEqual(env.navigations(), [url(27)]);
   });
 
@@ -171,10 +169,10 @@ describe('F-8 follow a link by typing its label', () => {
     assert.deepEqual(env.navigations(), [url(0)]);
   });
 
-  test('typed text must match a label exactly: "aab" does not match label "ab"', () => {
+  test('typed text must match a label exactly: "ac" matches no label when only "aa" and "ab" exist', () => {
     const env = setup(28);
     env.keydown('f');
-    env.type(['a', 'a', 'b']);
+    env.type(['a', 'c']);
     env.clock.advance(1000);
     assert.deepEqual(env.navigations(), []);
   });
@@ -246,7 +244,7 @@ describe('F-9 exit link mode with Escape', () => {
   });
 
   test('Escape cancels a pending label timer', () => {
-    const env = setup(3);
+    const env = setup(27); // "a" waits for a possible "aa"
     env.keydown('f');
     env.keydown('a');
     env.keydown('Escape');
@@ -264,9 +262,9 @@ describe('F-9 exit link mode with Escape', () => {
   });
 
   test('Escape clears the typed text: the next label is matched on its own', () => {
-    const env = setup(3);
+    const env = setup(27); // without clearing, "a" + "a" would follow "aa"
     env.keydown('f');
-    env.keydown('b');
+    env.keydown('a');
     env.keydown('Escape');
     env.keydown('f');
     env.keydown('a');
