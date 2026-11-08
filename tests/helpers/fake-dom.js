@@ -563,14 +563,23 @@ class FakeElement extends FakeNode {
     return true;
   }
 
-  focus() {}
+  // focus(), blur() and click() count their calls, so tests can check what VimNav did.
+  focus() {
+    this.focusCalls = (this.focusCalls || 0) + 1;
+  }
 
-  // Counts calls, so tests can check that VimNav took focus out of a field.
   blur() {
     this.blurCalls = (this.blurCalls || 0) + 1;
   }
 
-  click() {}
+  click() {
+    this.clickCalls = (this.clickCalls || 0) + 1;
+  }
+
+  // Like the `disabled` property of form controls: reflects the disabled attribute.
+  get disabled() {
+    return ['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes(this.tagName) && this.hasAttribute('disabled');
+  }
 
   // Like HTMLInputElement.type: the lowercased type attribute, 'text' when missing.
   // Only defined for <input>; other elements have no `type` here.

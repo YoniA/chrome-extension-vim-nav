@@ -49,7 +49,7 @@ document.addEventListener('keydown', (e) => {
 	const keyName = e.key;
 
   if (linkMode) {
-    handleLinkModeKey(keyName);
+    handleLinkModeKey(e);
   } else {
 		switch (keyName) {
 			case 'j':
@@ -107,21 +107,26 @@ const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'button', 'submit', '
 // composedPath()[0] is the real target, even inside a shadow root (e.target is then the host).
 function typingTarget(e) {
   const el = (e.composedPath && e.composedPath()[0]) || e.target;
-  if (!el || el.nodeType !== 1) return null;
-  if (el.isContentEditable) return el;
+  return el && el.nodeType === 1 && isField(el) ? el : null;
+}
+
+// Text-like <input>, <textarea>, <select> or contenteditable element.
+function isField(el) {
+  if (el.isContentEditable) return true;
   switch (el.tagName) {
     case 'TEXTAREA':
     case 'SELECT':
-      return el;
+      return true;
     case 'INPUT':
-      return NON_TEXT_INPUT_TYPES.has(el.type) ? null : el;
+      return !NON_TEXT_INPUT_TYPES.has(el.type);
   }
-  return null;
+  return false;
 }
 
 
 // In link mode only lowercase letters are label input; other keys except Escape are ignored.
-function handleLinkModeKey(keyName) {
+function handleLinkModeKey(e) {
+  const keyName = e.key;
   if (keyName === 'Escape') {
     exitLinkMode();
     return;
@@ -137,18 +142,30 @@ function handleLinkModeKey(keyName) {
   const longerLabelExists = Object.keys(linkHash).some(name => name.length > typed.length && name.startsWith(typed));
   if (longerLabelExists) {
     linkModeTimeout = setTimeout(followTypedLabel, 1000);
-  } else {
-    followTypedLabel();
+  } else if (followTypedLabel() === 'focused') {
+    // Focus moved into a field during this keydown; don't let the label letter be typed into it.
+    e.preventDefault();
   }
 }
 
 
+// Link: follow it. Field: put the cursor in it. Anything else (button, checkbox, ...): click it.
 function followTypedLabel() {
-  const url = linkHash[linkModeBuffer];
-  if (url && url.length > 0) {
+  const target = linkHash[linkModeBuffer];
+  if (!target) return null;
+  if (target.tagName === 'A') {
+    if (!target.href) return null;
     exitLinkMode();
-    window.location.href = url;
+    window.location.href = target.href;
+    return 'followed';
   }
+  exitLinkMode();
+  if (isField(target)) {
+    target.focus();
+    return 'focused';
+  }
+  target.click();
+  return 'clicked';
 }
 
 
@@ -166,13 +183,28 @@ window.addEventListener('pagehide', () => {
 });
 
 
+// What f labels: links, buttons and form fields.
+const TARGET_SELECTOR = 'a[href], button, input, textarea, select, [contenteditable], [role=button]';
+
+function isLabelTarget(el) {
+  if (el.disabled) return false;
+  if (el.tagName === 'INPUT' && el.type === 'hidden') return false;
+  if (el.hasAttribute('contenteditable')) {
+    // Only the editor itself, not editable elements nested inside it.
+    if (!el.isContentEditable) return false;
+    if (el.parentElement && el.parentElement.isContentEditable) return false;
+  }
+  return isVisibleLink(el);
+}
+
+
 // Labels float above the page (absolutely positioned in <html>), so the page layout never moves.
 function labelAllLinks() {
-  const links = Array.from(document.querySelectorAll('a[href]')).filter(isVisibleLink);
+  const links = Array.from(document.querySelectorAll(TARGET_SELECTOR)).filter(isLabelTarget);
 
   linkLabels = links.map((link, index) => {
     const name = labelName(index);
-    linkHash[name] = link.href;
+    linkHash[name] = link;
     return createLinkLabel(name, link);
   });
   linkLabels.forEach(label => document.documentElement.appendChild(label));
@@ -194,10 +226,11 @@ function labelAllLinks() {
 
 // Rect of the last line of the link's content. A block link (e.g. in a grid cell) can be much
 // wider than its text, so its own box would put the label next to the following link.
+// Buttons and fields use their own box (a field's contents aren't laid out as page text).
 function linkContentEnd(link) {
   const rects = link.getClientRects();
   const fallback = rects[rects.length - 1] || link.getBoundingClientRect();
-  if (!document.createRange) return fallback;
+  if (link.tagName !== 'A' || !document.createRange) return fallback;
   const range = document.createRange();
   range.selectNodeContents(link);
   const contentRects = range.getClientRects();

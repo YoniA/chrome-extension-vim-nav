@@ -127,16 +127,20 @@ describe('B-2 modifier shortcuts', { timeout: 60000 }, () => {
     assert.ok((await state()).y > 1000);
   });
 
-  test('in link mode, Ctrl+a is not label input; a then follows the link', async () => {
+  test('in link mode, Ctrl+a is not label input; a then picks the first label', async () => {
     await reset();
     await page.keyboard.press('f');
     await page.waitForTimeout(150);
-    assert.equal((await state()).labels, 1);
+    const shown = (await state()).labels;
+    assert.ok(shown > 0, 'no labels');
     await page.keyboard.press('Control+a');
     await page.waitForTimeout(1200);
-    assert.equal((await state()).labels, 1, 'Ctrl+a left link mode');
+    assert.equal((await state()).labels, shown, 'Ctrl+a left link mode');
     assert.match(page.url(), /fields\.html/);
-    await page.keyboard.press('Escape');
+    await page.keyboard.press('a'); // label a is the first text field (F-16)
+    await page.waitForTimeout(100);
+    assert.equal((await state()).labels, 0);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'text');
   });
 });
 
@@ -174,6 +178,6 @@ describe('B-1 Escape leaves the field', { timeout: 60000 }, () => {
     await page.keyboard.press('Escape');
     await page.keyboard.press('f');
     await page.waitForTimeout(150);
-    assert.equal((await state()).labels, 1);
+    assert.ok((await state()).labels > 0, 'f did not enter link mode');
   });
 });

@@ -302,7 +302,7 @@ Split from B-12. B-12 (branch `fix-labels`) labels only visible links with an hr
 Acceptance criteria:
 - [ ] To be written once the open questions are decided.
 
-Notes: Open questions: Does a link only partly inside the viewport get a label? Does a link that is in the viewport but covered by another element (e.g. an overlay or sticky header) get a label? Do links with a placeholder destination (`href=""`, `href="#"`, `javascript:` URLs) get labels? Should clickable non-link elements (buttons, inputs) also get labels? If yes, that is a separate feature. Depends on B-12.
+Notes: Open questions: Does a link only partly inside the viewport get a label? Does a link that is in the viewport but covered by another element (e.g. an overlay or sticky header) get a label? Do links with a placeholder destination (`href=""`, `href="#"`, `javascript:` URLs) get labels? Clickable non-link elements: buttons and fields are labeled since F-16. Depends on B-12.
 
 ### B-13 Scroll commands don't work on pages with an inner scrolling element
 Type: bug · Priority: P3 (proposed) · Status: proposed
@@ -425,6 +425,21 @@ Notes: Not in the review list; added because README currently omits `f` and Esca
 ## Done
 
 Items F-3 to F-11 record shipped behavior as of commit 922fdab. They were written from reading the code and are not yet verified by tests (C-4, C-5). Their acceptance criteria are the spec for tests of current behavior. Known bugs are referenced in Notes and are not part of the criteria.
+
+### F-16 Label buttons and form fields in link mode
+Type: feature · Priority: P2 · Status: done
+
+As a keyboard-only user, I want `f` to label buttons and form fields as well as links, so that I can press buttons and type into fields without the mouse.
+
+Acceptance criteria:
+- [x] `f` labels, in document order with links: `<button>`, `<input>` (except `type=hidden`), `<textarea>`, `<select>`, contenteditable editors and `role=button` elements, when visible (same rules as B-12).
+- [x] Disabled controls, `contenteditable="false"` elements and editable elements nested inside an editor get no label.
+- [x] Typing a link's label follows it, as before.
+- [x] Typing the label of a text field, textarea, select or editor puts the cursor in it; the label letter is not typed into it, and later keys type normally (B-1). Escape leaves it.
+- [x] Typing the label of a button, checkbox, radio button, submit or `role=button` element clicks it.
+- [x] Each label is placed above and after its element (F-12).
+
+Notes: Requested by the project owner. Partly answers a B-16 question (clickable non-link elements). Not covered: inputs inside shadow roots and other clickable elements (`onclick` handlers, `role=link`, `<summary>`), which could be follow-ups. Tests: `tests/link-targets.test.js`, `tests/e2e/f16-label-buttons-fields.test.js`.
 
 ### F-3 Scroll with j/k/h/l
 Type: feature · Priority: — · Status: done
