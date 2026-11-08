@@ -285,7 +285,7 @@ describe('B-1 Escape takes focus out of a field', () => {
 
   test('with VimNav OFF, Escape in a field does not blur it', () => {
     const env = setup();
-    env.message({ action: 'setEnabled', value: false });
+    env.setStoredState('OFF');
     const target = element(env, 'input');
     env.keydown('Escape', { target });
     assert.equal(target.blurCalls, undefined);

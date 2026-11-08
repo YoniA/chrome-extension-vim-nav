@@ -7,7 +7,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createFakeDocument, computedStyleOf, FakeAnchor, FakeElement, VIEWPORT } = require('./fake-dom');
 const { createFakeClock } = require('./fake-clock');
-const { createContentChrome, createBackgroundChrome } = require('./fake-chrome');
+const { createContentChrome, createBackgroundChrome, createFakeStorage } = require('./fake-chrome');
 
 const ROOT = path.join(__dirname, '..', '..');
 // VIMNAV_CONTENT_FILE / VIMNAV_BACKGROUND_FILE let QA run the same tests against another copy of a
@@ -35,8 +35,10 @@ function copy(value) {
 //   hrefs: list of href values for <a> elements appended to <body>; null/undefined = no href attribute
 //   groupSize: if set, links are put in <div>s of this many links each (still in document order),
 //     which keeps DOM insertions cheap in the fake for pages with tens of thousands of links.
+//   storedState: extensionState in sync storage when the tab loads (undefined = not stored)
+//   storage: a createFakeStorage() shared with the service worker or other tabs (overrides storedState)
 // Every link is visible and inside the viewport by default (see fake-dom.js).
-function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize } = {}) {
+function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize, storedState, storage } = {}) {
   const document = createFakeDocument({ scrollHeight });
   let parent = document.body;
   const links = hrefs.map((href, i) => {
@@ -44,7 +46,8 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize } = {}) {
     return parent.appendChild(new FakeAnchor(href));
   });
   const clock = createFakeClock();
-  const chrome = createContentChrome();
+  if (!storage) storage = createFakeStorage(storedState === undefined ? {} : { extensionState: storedState });
+  const chrome = createContentChrome({ storage });
 
   const scrollCalls = [];
   const historyCalls = [];
@@ -164,6 +167,11 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize } = {}) {
         env.keydown(k);
       });
     },
+    // Changes extensionState in sync storage, as the icon (or another device) would.
+    // Every tab sharing this storage is notified.
+    setStoredState(value) {
+      return storage.sync.set({ extensionState: value });
+    },
     // Delivers a runtime message like chrome.tabs.sendMessage would. Returns false if no receiver.
     message(msg) {
       const ls = chrome.runtime.onMessage.listeners;
@@ -216,19 +224,23 @@ function createBackgroundEnv(options = {}) {
   const env = {
     ...fake,
     context,
-    install(details = { reason: 'install' }) {
-      return Promise.all(c.runtime.onInstalled.listeners.map((l) => l(details)));
-    },
-    click(tab) {
-      return Promise.all(c.action.onClicked.listeners.map((l) => l(tab)));
-    },
-    createTab(tab) {
-      c.tabs.onCreated.listeners.forEach((l) => l(tab));
+    async install(details = { reason: 'install' }) {
+      await Promise.all(c.runtime.onInstalled.listeners.map((l) => l(details)));
       return flush();
     },
-    domContentLoaded(details) {
-      c.webNavigation.onDOMContentLoaded.listeners.forEach((l) => l(details));
+    async startup() {
+      await Promise.all(c.runtime.onStartup.listeners.map((l) => l()));
       return flush();
+    },
+    async click(tab = { id: 1 }) {
+      await Promise.all(c.action.onClicked.listeners.map((l) => l(tab)));
+      return flush();
+    },
+    // A tab running vim-scroll.js that shares this service worker's sync storage.
+    openTab(contentOptions = {}) {
+      const tab = createContentEnv({ hrefs: ['https://example.test/a'], ...contentOptions, storage: fake.sharedStorage });
+      tab.inject();
+      return tab;
     },
   };
   // Spread copies getters as values; keep globalBadge live.

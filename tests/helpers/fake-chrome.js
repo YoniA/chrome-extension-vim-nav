@@ -17,33 +17,54 @@ function createEvent() {
   };
 }
 
+// Sync storage shared by the service worker and every tab: set() notifies storage.onChanged
+// listeners everywhere, like Chrome. `data` is the stored items.
+function createFakeStorage(data = {}, calls = null) {
+  const onChanged = createEvent();
+  const sync = {
+    async get(keys) {
+      if (calls) calls.push(['storage.sync.get', copy(keys)]);
+      const names = typeof keys === 'string' ? [keys] : keys;
+      const out = {};
+      for (const k of names) if (k in data) out[k] = data[k];
+      return out;
+    },
+    async set(items) {
+      if (calls) calls.push(['storage.sync.set', copy(items)]);
+      const changes = {};
+      for (const [k, v] of Object.entries(items)) {
+        changes[k] = { oldValue: data[k], newValue: v };
+        data[k] = v;
+      }
+      onChanged.listeners.forEach((l) => l(changes, 'sync'));
+    },
+  };
+  return { data, sync, onChanged };
+}
+
 // chrome object as seen by the content script.
-function createContentChrome() {
+//   storage: a createFakeStorage() to share with the service worker / other tabs (default: own, empty)
+function createContentChrome({ storage = createFakeStorage() } = {}) {
   return {
     runtime: { onMessage: createEvent() },
+    storage: { sync: storage.sync, onChanged: storage.onChanged },
   };
 }
 
 // chrome object as seen by the service worker.
 //   storedState: initial value of extensionState in sync storage (undefined = not stored)
-//   badges: { [tabId]: text } initial per-tab badge text; globalBadge: default badge text
-//   sendMessage(tabId, msg): implementation; default rejects like Chrome with no receiver
-//   executeScript(details): implementation; default resolves
-function createBackgroundChrome({
-  storedState,
-  badges = {},
-  globalBadge = '',
-  sendMessage,
-  executeScript,
-} = {}) {
+//   globalBadge: initial badge text
+// It has no scripting, tabs or webNavigation API: the extension no longer uses them, so a call fails.
+function createBackgroundChrome({ storedState, globalBadge = '' } = {}) {
   const calls = [];
-  const storage = {};
-  if (storedState !== undefined) storage.extensionState = storedState;
-  const tabBadges = { ...badges };
+  const data = {};
+  if (storedState !== undefined) data.extensionState = storedState;
+  const storage = createFakeStorage(data, calls);
+  const tabBadges = {};
   const state = { globalBadge };
 
   const chrome = {
-    runtime: { onInstalled: createEvent() },
+    runtime: { onInstalled: createEvent(), onStartup: createEvent() },
     action: {
       onClicked: createEvent(),
       async setBadgeText(details) {
@@ -57,43 +78,14 @@ function createBackgroundChrome({
         return state.globalBadge;
       },
     },
-    storage: {
-      sync: {
-        async get(keys) {
-          calls.push(['storage.sync.get', copy(keys)]);
-          const names = typeof keys === 'string' ? [keys] : keys;
-          const out = {};
-          for (const k of names) if (k in storage) out[k] = storage[k];
-          return out;
-        },
-        async set(items) {
-          calls.push(['storage.sync.set', copy(items)]);
-          Object.assign(storage, items);
-        },
-      },
-    },
-    scripting: {
-      async executeScript(details) {
-        calls.push(['scripting.executeScript', copy(details)]);
-        if (executeScript) return executeScript(details);
-        return [];
-      },
-    },
-    tabs: {
-      onCreated: createEvent(),
-      async sendMessage(tabId, msg) {
-        calls.push(['tabs.sendMessage', tabId, copy(msg)]);
-        if (sendMessage) return sendMessage(tabId, msg);
-        throw new Error('Could not establish connection. Receiving end does not exist.');
-      },
-    },
-    webNavigation: { onDOMContentLoaded: createEvent() },
+    storage: { sync: storage.sync, onChanged: storage.onChanged },
   };
 
   return {
     chrome,
     calls,
-    storage,
+    storage: data,
+    sharedStorage: storage,
     tabBadges,
     get globalBadge() {
       return state.globalBadge;
@@ -104,4 +96,4 @@ function createBackgroundChrome({
   };
 }
 
-module.exports = { createEvent, createContentChrome, createBackgroundChrome };
+module.exports = { createEvent, createFakeStorage, createContentChrome, createBackgroundChrome };

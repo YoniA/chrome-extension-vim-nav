@@ -1,131 +1,126 @@
 'use strict';
 
-// F-10, content-script side: setEnabled messages, disabled state, re-injection guard.
+// F-10 / B-4, content-script side: every tab follows the one global switch (extensionState in
+// sync storage) at load and live, without a reload. Not stored means ON. The script starts ON
+// and corrects itself once storage has been read, so a stored OFF takes effect a moment after load.
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createContentEnv } = require('./helpers/load');
+const { createContentEnv, flush } = require('./helpers/load');
 
 const url = (i) => `https://example.test/page-${i}`;
 
-function setup(count = 3) {
-  const env = createContentEnv({ hrefs: Array.from({ length: count }, (_, i) => url(i)) });
+async function setup({ count = 3, storedState } = {}) {
+  const env = createContentEnv({ hrefs: Array.from({ length: count }, (_, i) => url(i)), storedState });
   env.inject();
+  await flush();
   return env;
 }
 
-const off = { action: 'setEnabled', value: false };
-const on = { action: 'setEnabled', value: true };
+function commandsWork(env) {
+  const before = env.scrollCalls.length;
+  env.keydown('j');
+  return env.scrollCalls.length > before;
+}
 
-describe('F-10 content script enable/disable', () => {
-  test('a freshly injected script starts enabled', () => {
-    const env = setup();
-    env.keydown('j');
-    assert.deepEqual(env.scrollCalls, [[0, 50]]);
+describe('F-10 / B-4 state at page load', () => {
+  test('nothing stored (fresh install): commands work', async () => {
+    const env = await setup();
+    assert.ok(commandsWork(env));
   });
 
-  test('injection registers exactly one keydown handler and one message listener', () => {
-    const env = setup();
-    assert.equal(env.document.keydownListeners().length, 1);
-    assert.equal(env.chrome.runtime.onMessage.listeners.length, 1);
-    assert.equal(env.window.__vimNavActive, true);
+  test('stored ON: commands work', async () => {
+    const env = await setup({ storedState: 'ON' });
+    assert.ok(commandsWork(env));
   });
 
-  test('when disabled, every command key is ignored', () => {
-    const env = setup();
-    env.message(off);
-    for (const k of ['j', 'k', 'h', 'l', 'G', 'g', 'g', 'H', 'L', 'f', 'Escape']) env.keydown(k);
+  test('stored OFF: every command key is ignored', async () => {
+    const env = await setup({ storedState: 'OFF' });
+    for (const k of ['j', 'k', 'h', 'l', 'G', 'g', 'g', 'H', 'L', 'f']) env.keydown(k);
     assert.deepEqual(env.scrollCalls, []);
     assert.deepEqual(env.historyCalls, []);
     assert.equal(env.labels().length, 0);
   });
 
-  test('when disabled in link mode, label keys are ignored and no timer starts', () => {
-    const env = setup();
+  test('a switch flipped while storage is still being read wins over the value read', async () => {
+    const env = createContentEnv({ hrefs: [url(0)], storedState: 'ON' });
+    env.inject();
+    await env.setStoredState('OFF'); // arrives before the initial read resolves
+    await flush();
+    assert.equal(commandsWork(env), false);
+  });
+
+  test('injection registers exactly one keydown handler and one storage listener', async () => {
+    const env = await setup();
+    assert.equal(env.document.keydownListeners().length, 1);
+    assert.equal(env.chrome.storage.onChanged.listeners.length, 1);
+  });
+});
+
+describe('F-10 / B-4 switching live, without a reload', () => {
+  test('switching OFF: keys are ignored at once', async () => {
+    const env = await setup();
+    await env.setStoredState('OFF');
+    assert.equal(commandsWork(env), false);
+  });
+
+  test('switching back ON: commands work again', async () => {
+    const env = await setup({ storedState: 'OFF' });
+    await env.setStoredState('ON');
+    assert.ok(commandsWork(env));
+  });
+
+  test('switching OFF in link mode leaves link mode: labels removed, a pending label never opens', async () => {
+    const env = await setup({ count: 27 });
     env.keydown('f');
-    env.message(off);
-    env.keydown('a');
-    assert.equal(env.clock.pendingCount(), 0);
+    env.keydown('a'); // waits for a possible "aa"
+    assert.equal(env.labels().length, 27);
+    await env.setStoredState('OFF');
+    assert.equal(env.labels().length, 0);
     env.clock.advance(5000);
     assert.deepEqual(env.navigations(), []);
   });
 
-  test('when disabled in link mode, Escape is ignored and labels stay visible', () => {
-    const env = setup();
+  test('after OFF in link mode and back ON, j scrolls and f shows one fresh set of labels', async () => {
+    const env = await setup({ count: 5 });
     env.keydown('f');
-    env.message(off);
+    await env.setStoredState('OFF');
+    await env.setStoredState('ON');
+    assert.ok(commandsWork(env));
+    env.keydown('f');
+    assert.equal(env.labels().length, 5);
+  });
+
+  test('while OFF, Escape and label letters do nothing', async () => {
+    const env = await setup({ storedState: 'OFF' });
+    env.keydown('f');
+    env.keydown('a');
     env.keydown('Escape');
-    assert.equal(env.visibleLabels().length, 3);
+    env.clock.advance(5000);
+    assert.deepEqual(env.navigations(), []);
+    assert.equal(env.clock.pendingCount(), 0);
   });
 
-  test('disabling does not hide labels', () => {
-    const env = setup();
-    env.keydown('f');
-    env.message(off);
-    assert.equal(env.visibleLabels().length, 3);
+  test('changes to other keys or storage areas do not change the state', async () => {
+    const env = await setup();
+    const listener = env.chrome.storage.onChanged.listeners[0];
+    listener({ other: { newValue: 'OFF' } }, 'sync');
+    listener({ extensionState: { newValue: 'OFF' } }, 'local');
+    assert.ok(commandsWork(env));
   });
 
-  test('after re-enable, link mode carries on: typing a label follows it', () => {
-    const env = setup();
-    env.keydown('f');
-    env.message(off);
-    env.message(on);
-    env.keydown('b');
-    env.clock.advance(1000);
-    assert.deepEqual(env.navigations(), [url(1)]);
+  test('extensionState removed from storage (no new value) means ON', async () => {
+    const env = await setup({ storedState: 'OFF' });
+    env.chrome.storage.onChanged.listeners[0]({ extensionState: { oldValue: 'OFF' } }, 'sync');
+    assert.ok(commandsWork(env));
   });
+});
 
-  test('after re-enable, f does not add a second set of labels (still in link mode)', () => {
-    const env = setup();
-    env.keydown('f');
-    env.message(off);
-    env.message(on);
-    env.keydown('f');
-    assert.equal(env.labels().length, 3);
-  });
-
-  test('re-enabling restores normal commands', () => {
-    const env = setup();
-    env.message(off);
-    env.keydown('j');
-    env.message(on);
-    env.keydown('j');
-    assert.deepEqual(env.scrollCalls, [[0, 50]]);
-  });
-
-  test('messages with another action do not change the enabled state', () => {
-    const env = setup();
-    env.message({ action: 'somethingElse', value: false });
-    env.keydown('j');
-    assert.deepEqual(env.scrollCalls, [[0, 50]]);
-  });
-
-  test('injecting again into the same tab throws and does not add a second handler', () => {
-    const env = setup();
+describe('loading the script twice into one page', () => {
+  test('a second copy throws and does not add a second handler', async () => {
+    const env = await setup();
     assert.throws(() => env.inject());
     assert.equal(env.document.keydownListeners().length, 1);
-    assert.equal(env.chrome.runtime.onMessage.listeners.length, 1);
-    env.keydown('j');
-    assert.deepEqual(env.scrollCalls, [[0, 50]]);
-  });
-
-  test('re-injection fails with a let-redeclaration SyntaxError, not the "VimNav already active" guard', () => {
-    // Top-level `let` bindings persist in the shared global scope of a vm context (and of
-    // Chrome's isolated world), so the second copy fails before its first line runs.
-    const env = setup();
-    assert.throws(() => env.inject(), (err) => {
-      assert.equal(err.name, 'SyntaxError');
-      assert.match(err.message, /already been declared/);
-      return true;
-    });
-  });
-
-  test('re-injection keeps the existing state (disabled stays disabled)', () => {
-    const env = setup();
-    env.message(off);
-    assert.throws(() => env.inject());
-    env.keydown('j');
-    assert.deepEqual(env.scrollCalls, []);
   });
 
   test('the __vimNavActive guard stops a copy loaded into a window already marked active', () => {
@@ -133,6 +128,5 @@ describe('F-10 content script enable/disable', () => {
     env.window.__vimNavActive = true;
     assert.throws(() => env.inject(), /VimNav already active/);
     assert.equal(env.document.keydownListeners().length, 0);
-    assert.equal(env.chrome.runtime.onMessage.listeners.length, 0);
   });
 });

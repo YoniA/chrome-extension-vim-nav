@@ -1,6 +1,8 @@
 if (window.__vimNavActive) throw new Error('VimNav already active');
 window.__vimNavActive = true;
 
+// One global on/off switch: extensionState in sync storage, followed live in every tab.
+// Not stored (fresh install) means ON. Starts ON until storage has been read.
 let enabled = true;
 let lastKey = null;
 
@@ -11,8 +13,19 @@ let linkLabels = [];
 let linkModeBuffer = '';
 let linkModeTimeout = null;
 
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.action === 'setEnabled') enabled = msg.value;
+function setEnabled(value) {
+  enabled = value;
+  if (!enabled && linkMode) exitLinkMode();
+}
+
+let stateChanged = false; // a change that arrives before the first read wins over it
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'sync' || !('extensionState' in changes)) return;
+  stateChanged = true;
+  setEnabled(changes.extensionState.newValue !== 'OFF');
+});
+chrome.storage.sync.get('extensionState').then(({ extensionState }) => {
+  if (!stateChanged) setEnabled(extensionState !== 'OFF');
 });
 
 document.addEventListener('keydown', (e) => {

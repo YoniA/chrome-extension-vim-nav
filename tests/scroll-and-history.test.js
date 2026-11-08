@@ -192,17 +192,17 @@ describe('F-5 jump to top with gg', () => {
 
   test('keydowns while disabled are not recorded: they do not break a pair', () => {
     env.keydown('g', { timeStamp: 0 });
-    env.message({ action: 'setEnabled', value: false });
+    env.setStoredState('OFF');
     env.keydown('x', { timeStamp: 50 });
-    env.message({ action: 'setEnabled', value: true });
+    env.setStoredState('ON');
     env.keydown('g', { timeStamp: 100 });
     assert.deepEqual(env.scrollCalls, [TOP]);
   });
 
   test('keydowns while disabled are not recorded: they do not complete a pair', () => {
-    env.message({ action: 'setEnabled', value: false });
+    env.setStoredState('OFF');
     env.keydown('g', { timeStamp: 0 });
-    env.message({ action: 'setEnabled', value: true });
+    env.setStoredState('ON');
     env.keydown('g', { timeStamp: 100 });
     assert.deepEqual(env.scrollCalls, []);
   });

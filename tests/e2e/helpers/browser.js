@@ -1,11 +1,10 @@
 'use strict';
 
 // End-to-end harness: loads a sandboxed copy of the extension into headless Chromium
-// (Playwright, temporary profile), serves tests/e2e/pages over local HTTP, and turns VimNav ON
-// in a tab the way a first icon click does (injects vim-scroll.js from the service worker).
+// (Playwright, temporary profile) and serves tests/e2e/pages over local HTTP. The manifest loads
+// VimNav into every page, ON by default; browser.toggle() does what clicking the icon does.
 //
-// Same approach as tools/try-extension.mjs (not imported from there). The extension copy gets
-// host_permissions <all_urls> to stand in for the activeTab grant a real icon click gives.
+// Same approach as tools/try-extension.mjs (not imported from there).
 //
 // VIMNAV_EXTENSION_DIR: test another copy of the extension (e.g. to check that tests can pass).
 // VIMNAV_E2E_HEADED=1: show the browser.
@@ -43,11 +42,6 @@ async function startBrowser() {
   for (const file of EXTENSION_FILES) {
     await fs.cp(path.join(EXTENSION_SRC, file), path.join(extDir, file), { recursive: true });
   }
-  const manifestPath = path.join(extDir, 'manifest.json');
-  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
-  manifest.host_permissions = ['<all_urls>'];
-  await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
-
   const context = await chromium.launchPersistentContext(path.join(sandbox, 'profile'), {
     channel: 'chromium',
     headless: !process.env.VIMNAV_E2E_HEADED,
@@ -62,28 +56,36 @@ async function startBrowser() {
 
   const browser = {
     base,
-    // Opens a test page in a new tab and turns VimNav ON there. `query` is appended to the URL.
+    worker,
+    context,
+    // Opens a test page in a new tab, with VimNav ON (the switch is global). `query` is appended to the URL.
     async open(name, query = '') {
+      await browser.setState('ON');
       const page = await context.newPage();
       const sep = query ? '&' : '';
       await page.goto(`${base}${name}?${query}${sep}n=${++counter}`);
-      await browser.enable(page);
+      await browser.ready(page);
       return page;
     },
+    // Waits until VimNav has read the stored state in the page (it loads at document_start).
+    async ready(page) {
+      await page.waitForTimeout(100);
+    },
+    // Kept for older tests: VimNav is already on in every page; makes sure the switch is ON.
     async enable(page) {
-      const error = await worker.evaluate(async (url) => {
-        const tabs = await chrome.tabs.query({});
-        const tab = tabs.find((t) => t.url === url);
-        if (!tab) return `no tab with URL ${url}`;
-        await chrome.action.setBadgeText({ tabId: tab.id, text: 'ON' });
-        try {
-          await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['vim-scroll.js'] });
-        } catch (e) {
-          return e.message;
-        }
-        return null;
-      }, page.url());
-      if (error) throw new Error(`Could not turn VimNav on: ${error}`);
+      await browser.setState('ON');
+      await browser.ready(page);
+    },
+    // What clicking the toolbar icon does (calls background.js's own handler).
+    async toggle() {
+      await worker.evaluate(() => toggleExtension());
+      await new Promise((r) => setTimeout(r, 100));
+    },
+    async setState(value) {
+      await worker.evaluate((v) => chrome.storage.sync.set({ extensionState: v }), value);
+    },
+    badge() {
+      return worker.evaluate(() => chrome.action.getBadgeText({}));
     },
     async close() {
       await context.close();

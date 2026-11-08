@@ -1,7 +1,7 @@
 // Runs a scripted browsing session with VimNav loaded in a sandboxed Chromium
 // (temporary profile and extension copy, deleted afterwards).
 //
-// Usage: node tools/try-extension.mjs <session.json> [--out <dir>] [--headed] [--slow <ms>] [--no-host-access]
+// Usage: node tools/try-extension.mjs <session.json> [--out <dir>] [--headed] [--slow <ms>]
 //
 // --headed shows the browser window; --slow pauses after every step (and between key presses)
 // so a person can follow along, e.g. --headed --slow 800.
@@ -10,7 +10,7 @@
 //   { "goto": "local:long.html" }   local test page (tools/pages), served from localhost
 //   { "goto": "local2:links.html" } same pages from 127.0.0.1, a different origin
 //   { "goto": "https://example.com" }
-//   { "toggle": true }              simulate clicking the VimNav toolbar icon
+//   { "toggle": true }              click the VimNav toolbar icon (the one global on/off switch)
 //   { "press": "j", "times": 3 }    press a key; Playwright key names, e.g. "G", "Escape", "Meta+l"
 //   { "type": "hello" }             type text into whatever has focus
 //   { "click": "#search" }          click an element (CSS selector)
@@ -24,11 +24,8 @@
 // After every step it prints one JSON line with the page state: URL, scroll position,
 // link labels, focus, badge text, and any errors from the page or the extension.
 //
-// The toolbar icon can't be clicked by automation, so "toggle" runs the same steps as the
-// icon's click handler in background.js, from inside the extension. A real click also grants
-// activeTab access to the page; to stand in for that, the extension copy is given access to all
-// sites. That also lets automatic injection on new tabs and page loads work everywhere, which may
-// not match real use (backlog B-3). Pass --no-host-access to keep the original permissions.
+// VimNav is loaded into every page by its manifest and starts ON. The toolbar icon can't be
+// clicked by automation, so "toggle" calls the icon's handler (toggleExtension in background.js).
 
 import { chromium } from 'playwright';
 import http from 'node:http';
@@ -45,12 +42,11 @@ const SETTLE_MS = 200;
 const args = process.argv.slice(2);
 const sessionFile = args.find(a => !a.startsWith('--') && !['--out', '--slow'].includes(args[args.indexOf(a) - 1]));
 if (!sessionFile) {
-  console.error('Usage: node tools/try-extension.mjs <session.json> [--out <dir>] [--headed] [--slow <ms>] [--no-host-access]');
+  console.error('Usage: node tools/try-extension.mjs <session.json> [--out <dir>] [--headed] [--slow <ms>]');
   process.exit(2);
 }
 const headed = args.includes('--headed');
 const slowMs = args.includes('--slow') ? Number(args[args.indexOf('--slow') + 1]) : 0;
-const hostAccess = !args.includes('--no-host-access');
 const outDir = args.includes('--out')
   ? path.resolve(args[args.indexOf('--out') + 1])
   : await fs.mkdtemp(path.join(os.tmpdir(), 'vimnav-try-'));
@@ -91,12 +87,6 @@ const extDir = path.join(sandbox, 'extension');
 for (const file of EXTENSION_FILES) {
   await fs.cp(path.join(ROOT, file), path.join(extDir, file), { recursive: true });
 }
-if (hostAccess) {
-  const manifestPath = path.join(extDir, 'manifest.json');
-  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
-  manifest.host_permissions = ['<all_urls>'];
-  await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
-}
 
 const context = await chromium.launchPersistentContext(path.join(sandbox, 'profile'), {
   channel: 'chromium',
@@ -131,43 +121,13 @@ context.on('page', page => {
 let page = pages[0] ?? await context.newPage();
 await getWorker();
 
-async function tabIdOf(p) {
+// What clicking the toolbar icon does: background.js's own handler.
+async function clickIcon() {
   const worker = await getWorker();
-  return worker.evaluate(async url => {
-    const tabs = await chrome.tabs.query({});
-    const matches = tabs.filter(t => t.url === url);
-    return (matches.find(t => t.active) ?? matches.at(-1))?.id ?? null;
-  }, p.url());
-}
-
-// Same steps as chrome.action.onClicked in background.js
-async function simulateIconClick(tabId) {
-  const worker = await getWorker();
-  return worker.evaluate(async tabId => {
-    const prevState = await chrome.action.getBadgeText({ tabId });
-    const nextState = prevState === 'ON' ? 'OFF' : 'ON';
-    await chrome.action.setBadgeText({ tabId, text: nextState });
-    await chrome.storage.sync.set({ extensionState: nextState });
-    let error = null;
-    if (nextState === 'ON') {
-      try {
-        await chrome.tabs.sendMessage(tabId, { action: 'setEnabled', value: true });
-      } catch {
-        try {
-          await chrome.scripting.executeScript({ target: { tabId }, files: ['vim-scroll.js'] });
-        } catch (e) {
-          error = e.message;
-        }
-      }
-    } else {
-      try {
-        await chrome.tabs.sendMessage(tabId, { action: 'setEnabled', value: false });
-      } catch (e) {
-        error = e.message;
-      }
-    }
-    return { state: nextState, error };
-  }, tabId);
+  return worker.evaluate(async () => {
+    await toggleExtension();
+    return { state: (await chrome.storage.sync.get('extensionState')).extensionState };
+  });
 }
 
 async function pageState() {
@@ -192,9 +152,8 @@ async function pageState() {
       focusedValue: active && 'value' in active ? active.value : active?.isContentEditable ? active.textContent : undefined,
     };
   }).catch(e => ({ unavailable: e.message }));
-  const tabId = await tabIdOf(page).catch(() => null);
   const worker = await getWorker();
-  state.badge = tabId == null ? null : await worker.evaluate(id => chrome.action.getBadgeText({ tabId: id }), tabId).catch(() => null);
+  state.badge = await worker.evaluate(() => chrome.action.getBadgeText({})).catch(() => null);
   state.tabs = pages.filter(p => !p.isClosed()).length;
   state.currentTab = pages.indexOf(page);
   return state;
@@ -205,7 +164,7 @@ async function settle() {
   await page.waitForTimeout(SETTLE_MS + slowMs);
 }
 
-await log({ session: sessionFile, outDir, hostAccess, headed, slowMs });
+await log({ session: sessionFile, outDir, headed, slowMs });
 
 try {
   for (const [index, step] of steps.entries()) {
@@ -213,7 +172,7 @@ try {
     if ('goto' in step) {
       await page.goto(resolveUrl(step.goto));
     } else if ('toggle' in step) {
-      Object.assign(result, await simulateIconClick(await tabIdOf(page)));
+      Object.assign(result, await clickIcon());
     } else if ('press' in step) {
       for (let i = 0; i < (step.times ?? 1); i++) {
         await page.keyboard.press(step.press, { delay: step.delay ?? 20 });

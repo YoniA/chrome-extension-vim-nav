@@ -1,90 +1,59 @@
 'use strict';
 
-// F-10 / F-11 end to end: background.js wired to one tab running vim-scroll.js.
-// tabs.sendMessage delivers to the tab's onMessage listeners (rejects if there are none);
-// scripting.executeScript runs vim-scroll.js in the tab. Assumption: like Chrome, an error
-// thrown by the injected file is reported in the page and executeScript still resolves.
+// B-3 / B-4 end to end: background.js and several tabs running vim-scroll.js, sharing one sync
+// storage. The manifest loads the script into every page, so tabs just open (no injection).
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createBackgroundEnv, createContentEnv } = require('./helpers/load');
+const { createBackgroundEnv, flush } = require('./helpers/load');
 
-function setup(bgOptions = {}) {
-  const tab = createContentEnv({ hrefs: ['https://example.test/a'] });
-  const injectErrors = [];
-  const bg = createBackgroundEnv({
-    ...bgOptions,
-    async sendMessage(tabId, msg) {
-      if (!tab.message(msg)) throw new Error('Could not establish connection. Receiving end does not exist.');
-    },
-    async executeScript() {
-      try {
-        tab.inject();
-      } catch (err) {
-        injectErrors.push(err);
-      }
-      return [];
-    },
-  });
-  return { tab, bg, injectErrors, id: { id: 1 } };
+function commandsWork(tab) {
+  const before = tab.scrollCalls.length;
+  tab.keydown('j');
+  return tab.scrollCalls.length > before;
 }
 
-describe('F-10 toggle end to end', () => {
-  test('first click on a tab without the script injects it and keys work', async () => {
-    const { tab, bg, id } = setup();
-    await bg.click(id);
-    assert.equal(bg.callsTo('scripting.executeScript').length, 1);
-    tab.keydown('j');
-    assert.deepEqual(tab.scrollCalls, [[0, 50]]);
+describe('B-3 / B-4 one global switch for every tab', () => {
+  test('fresh install: a new tab works without clicking the icon, and the badge says ON', async () => {
+    const bg = createBackgroundEnv();
+    await bg.install({ reason: 'install' });
+    const tab = bg.openTab();
+    await flush();
+    assert.ok(commandsWork(tab));
+    assert.equal(bg.globalBadge, 'ON');
   });
 
-  test('second click turns OFF: keys are ignored', async () => {
-    const { tab, bg, id } = setup();
-    await bg.click(id);
-    await bg.click(id);
-    tab.keydown('j');
-    assert.deepEqual(tab.scrollCalls, []);
-    assert.equal(bg.tabBadges[1], 'OFF');
+  test('a click in one tab turns VimNav OFF in every open tab, and back ON', async () => {
+    const bg = createBackgroundEnv();
+    await bg.install();
+    const a = bg.openTab();
+    const b = bg.openTab();
+    await flush();
+    await bg.click({ id: 1 });
+    assert.equal(commandsWork(a), false, 'tab A still on');
+    assert.equal(commandsWork(b), false, 'tab B still on');
+    assert.equal(bg.globalBadge, 'OFF');
+    await bg.click({ id: 2 }); // from the other tab
+    assert.ok(commandsWork(a), 'tab A still off');
+    assert.ok(commandsWork(b), 'tab B still off');
+    assert.equal(bg.globalBadge, 'ON');
   });
 
-  test('third click re-enables the existing script without injecting again', async () => {
-    const { tab, bg, id, injectErrors } = setup();
-    await bg.click(id);
-    await bg.click(id);
-    await bg.click(id);
-    assert.equal(bg.callsTo('scripting.executeScript').length, 1);
-    assert.deepEqual(injectErrors, []);
-    tab.keydown('j');
-    assert.deepEqual(tab.scrollCalls, [[0, 50]]);
-    assert.equal(tab.document.keydownListeners().length, 1);
+  test('a tab opened while OFF starts OFF', async () => {
+    const bg = createBackgroundEnv();
+    await bg.install();
+    await bg.click();
+    const tab = bg.openTab();
+    await flush();
+    assert.equal(commandsWork(tab), false);
   });
 
-  test('stored ON re-applied to an already-injected tab does not add a second handler', async () => {
-    const { tab, bg, id, injectErrors } = setup();
-    await bg.click(id); // inject
-    await bg.domContentLoaded({ tabId: 1, frameId: 0 }); // stored ON -> inject again
-    assert.equal(bg.callsTo('scripting.executeScript').length, 2);
-    assert.equal(injectErrors.length, 1);
-    assert.equal(tab.document.keydownListeners().length, 1);
-    tab.keydown('j');
-    assert.deepEqual(tab.scrollCalls, [[0, 50]]);
-  });
-});
-
-describe('F-11 end to end', () => {
-  test('stored ON on a new page: script is injected enabled', async () => {
-    const { tab, bg } = setup({ storedState: 'ON' });
-    await bg.domContentLoaded({ tabId: 1, frameId: 0 });
-    tab.keydown('k');
-    assert.deepEqual(tab.scrollCalls, [[0, -50]]);
-    assert.equal(bg.tabBadges[1], 'ON');
-  });
-
-  test('stored OFF on a new page: no script, keys do nothing', async () => {
-    const { tab, bg } = setup({ storedState: 'OFF' });
-    await bg.domContentLoaded({ tabId: 1, frameId: 0 });
-    tab.keydown('k');
-    assert.deepEqual(tab.scrollCalls, []);
-    assert.equal(tab.document.keydownListeners().length, 0);
+  test('after an extension update, a stored OFF stays OFF in new tabs and on the badge (B-6)', async () => {
+    const bg = createBackgroundEnv({ storedState: 'OFF' });
+    await bg.install({ reason: 'update' });
+    const tab = bg.openTab();
+    await flush();
+    assert.equal(commandsWork(tab), false);
+    assert.equal(bg.globalBadge, 'OFF');
   });
 });

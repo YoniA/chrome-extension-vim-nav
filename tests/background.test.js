@@ -1,176 +1,135 @@
 'use strict';
 
-// F-10 (toolbar icon toggle, badge, storage) and F-11 (re-apply state) — background.js.
+// Service worker (background.js): one global on/off switch (B-4), kept across updates (B-6).
+// VimNav is loaded into every page by the manifest (B-3), so the service worker never injects
+// scripts or messages tabs; it only flips the stored state and shows it on the badge.
+// State: extensionState in sync storage, "ON" or "OFF"; not stored means ON (fresh install).
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createBackgroundEnv } = require('./helpers/load');
 
-const TAB = { id: 7 };
-const INJECT = { target: { tabId: 7 }, files: ['vim-scroll.js'] };
-const resolves = async () => undefined;
+// Every badge update is global: no tabId, so all tabs show the same badge.
+function assertBadgesGlobal(bg) {
+  for (const [details] of bg.callsTo('action.setBadgeText')) {
+    assert.equal(details.tabId, undefined, `badge set for one tab: ${JSON.stringify(details)}`);
+  }
+}
 
-describe('F-10 install defaults', () => {
-  test('on install, the default badge is OFF and the stored state is "OFF"', async () => {
+describe('loading the service worker', () => {
+  test('registers exactly one listener for install, startup, icon click and storage change', () => {
     const bg = createBackgroundEnv();
-    await bg.install();
-    assert.deepEqual(bg.callsTo('action.setBadgeText'), [[{ text: 'OFF' }]]);
-    assert.deepEqual(bg.callsTo('storage.sync.set'), [[{ extensionState: 'OFF' }]]);
+    const c = bg.chrome;
+    assert.equal(c.runtime.onInstalled.listeners.length, 1);
+    assert.equal(c.runtime.onStartup.listeners.length, 1);
+    assert.equal(c.action.onClicked.listeners.length, 1);
+    assert.equal(c.storage.onChanged.listeners.length, 1);
+  });
+
+  test('makes no API calls by itself', () => {
+    const bg = createBackgroundEnv({ storedState: 'OFF' });
+    assert.deepEqual(bg.calls, []);
+  });
+});
+
+describe('F-10 / B-6 install, update and browser start', () => {
+  test('fresh install (nothing stored): the badge shows ON', async () => {
+    const bg = createBackgroundEnv();
+    await bg.install({ reason: 'install' });
+    assert.equal(bg.globalBadge, 'ON');
+    assert.notEqual(bg.storage.extensionState, 'OFF');
+    assertBadgesGlobal(bg);
+  });
+
+  for (const reason of ['update', 'chrome_update', 'shared_module_update']) {
+    test(`${reason} keeps a stored OFF: badge OFF, state still OFF`, async () => {
+      const bg = createBackgroundEnv({ storedState: 'OFF' });
+      await bg.install({ reason });
+      assert.equal(bg.globalBadge, 'OFF');
+      assert.equal(bg.storage.extensionState, 'OFF');
+    });
+
+    test(`${reason} keeps a stored ON: badge ON`, async () => {
+      const bg = createBackgroundEnv({ storedState: 'ON' });
+      await bg.install({ reason });
+      assert.equal(bg.globalBadge, 'ON');
+      assert.equal(bg.storage.extensionState, 'ON');
+    });
+  }
+
+  test('install with a state already synced from another device keeps it (OFF stays OFF)', async () => {
+    const bg = createBackgroundEnv({ storedState: 'OFF' });
+    await bg.install({ reason: 'install' });
     assert.equal(bg.globalBadge, 'OFF');
     assert.equal(bg.storage.extensionState, 'OFF');
   });
 
-  test('loading the service worker registers exactly one listener per event', () => {
-    const bg = createBackgroundEnv();
-    const c = bg.chrome;
-    assert.equal(c.runtime.onInstalled.listeners.length, 1);
-    assert.equal(c.action.onClicked.listeners.length, 1);
-    assert.equal(c.tabs.onCreated.listeners.length, 1);
-    assert.equal(c.webNavigation.onDOMContentLoaded.listeners.length, 1);
-  });
-
-  test('loading the service worker makes no API calls by itself', () => {
-    const bg = createBackgroundEnv();
-    assert.deepEqual(bg.calls, []);
-  });
+  for (const [stored, badge] of [['ON', 'ON'], ['OFF', 'OFF'], [undefined, 'ON']]) {
+    test(`browser start with stored ${stored}: the badge shows ${badge}`, async () => {
+      const bg = createBackgroundEnv({ storedState: stored });
+      await bg.startup();
+      assert.equal(bg.globalBadge, badge);
+      assertBadgesGlobal(bg);
+    });
+  }
 });
 
-describe('F-10 clicking the icon', () => {
-  test('reads the clicked tab\'s badge', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'OFF' }, sendMessage: resolves });
-    await bg.click(TAB);
-    assert.deepEqual(bg.callsTo('action.getBadgeText'), [[{ tabId: 7 }]]);
-  });
-
-  for (const prev of ['OFF', '']) {
-    test(`badge ${JSON.stringify(prev)} becomes ON for that tab and is saved`, async () => {
-      const bg = createBackgroundEnv({ badges: { 7: prev }, sendMessage: resolves });
-      await bg.click(TAB);
-      assert.deepEqual(bg.callsTo('action.setBadgeText'), [[{ tabId: 7, text: 'ON' }]]);
-      assert.deepEqual(bg.callsTo('storage.sync.set'), [[{ extensionState: 'ON' }]]);
-      assert.equal(bg.tabBadges[7], 'ON');
+describe('F-10 / B-4 clicking the icon flips the one global switch', () => {
+  for (const [stored, next] of [['ON', 'OFF'], ['OFF', 'ON'], [undefined, 'OFF']]) {
+    test(`stored ${stored} becomes ${next}: saved, and the badge shows ${next} for all tabs`, async () => {
+      const bg = createBackgroundEnv({ storedState: stored });
+      await bg.click({ id: 7 });
+      assert.equal(bg.storage.extensionState, next);
+      assert.equal(bg.globalBadge, next);
+      assertBadgesGlobal(bg);
     });
   }
 
-  test('any other badge text also becomes ON', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'on' }, sendMessage: resolves });
-    await bg.click(TAB);
-    assert.equal(bg.tabBadges[7], 'ON');
-  });
-
-  test('badge ON becomes OFF for that tab and is saved', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'ON' }, sendMessage: resolves });
-    await bg.click(TAB);
-    assert.deepEqual(bg.callsTo('action.setBadgeText'), [[{ tabId: 7, text: 'OFF' }]]);
-    assert.deepEqual(bg.callsTo('storage.sync.set'), [[{ extensionState: 'OFF' }]]);
-    assert.equal(bg.tabBadges[7], 'OFF');
-  });
-
-  test('badge and storage are updated before the tab is messaged', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'OFF' }, sendMessage: resolves });
-    await bg.click(TAB);
-    assert.deepEqual(bg.calls.map((c) => c[0]), [
-      'action.getBadgeText',
-      'action.setBadgeText',
-      'storage.sync.set',
-      'tabs.sendMessage',
-    ]);
-  });
-
-  test('turning ON re-enables an already-injected script and does not inject', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'OFF' }, sendMessage: resolves });
-    await bg.click(TAB);
-    assert.deepEqual(bg.callsTo('tabs.sendMessage'), [[7, { action: 'setEnabled', value: true }]]);
-    assert.deepEqual(bg.callsTo('scripting.executeScript'), []);
-  });
-
-  test('turning ON injects vim-scroll.js when no script receives the message', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'OFF' } }); // default sendMessage rejects
-    await bg.click(TAB);
-    assert.deepEqual(bg.callsTo('tabs.sendMessage'), [[7, { action: 'setEnabled', value: true }]]);
-    assert.deepEqual(bg.callsTo('scripting.executeScript'), [[INJECT]]);
-  });
-
-  test('turning ON injects into the top frame only (no frameIds/allFrames)', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'OFF' } });
-    await bg.click(TAB);
-    const [[details]] = bg.callsTo('scripting.executeScript');
-    assert.deepEqual(Object.keys(details.target), ['tabId']);
-  });
-
-  test('turning OFF sends setEnabled false and never injects', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'ON' }, sendMessage: resolves });
-    await bg.click(TAB);
-    assert.deepEqual(bg.callsTo('tabs.sendMessage'), [[7, { action: 'setEnabled', value: false }]]);
-    assert.deepEqual(bg.callsTo('scripting.executeScript'), []);
-  });
-
-  test('two clicks on the same tab toggle ON then OFF', async () => {
-    const bg = createBackgroundEnv({ badges: { 7: 'OFF' }, sendMessage: resolves });
-    await bg.click(TAB);
-    await bg.click(TAB);
-    assert.equal(bg.tabBadges[7], 'OFF');
-    assert.equal(bg.storage.extensionState, 'OFF');
-    assert.deepEqual(
-      bg.callsTo('tabs.sendMessage').map(([, m]) => m.value),
-      [true, false],
-    );
-  });
-});
-
-describe('F-11 re-apply saved state', () => {
-  const sources = [
-    ['tab created', (bg) => bg.createTab({ id: 7 })],
-    ['DOMContentLoaded (top frame)', (bg) => bg.domContentLoaded({ tabId: 7, frameId: 0 })],
-    ['DOMContentLoaded (subframe)', (bg) => bg.domContentLoaded({ tabId: 7, frameId: 3 })],
-  ];
-
-  for (const [name, fire] of sources) {
-    describe(name, () => {
-      test('reads the stored state', async () => {
-        const bg = createBackgroundEnv({ storedState: 'OFF' });
-        await fire(bg);
-        assert.deepEqual(bg.callsTo('storage.sync.get'), [['extensionState']]);
-      });
-
-      test('no stored state: nothing else happens', async () => {
-        const bg = createBackgroundEnv();
-        await fire(bg);
-        assert.deepEqual(bg.calls.map((c) => c[0]), ['storage.sync.get']);
-      });
-
-      test('stored ON: sets the tab badge to ON and injects into the top frame', async () => {
-        const bg = createBackgroundEnv({ storedState: 'ON' });
-        await fire(bg);
-        assert.deepEqual(bg.callsTo('action.setBadgeText'), [[{ tabId: 7, text: 'ON' }]]);
-        assert.deepEqual(bg.callsTo('scripting.executeScript'), [[INJECT]]);
-      });
-
-      test('stored OFF: sets the tab badge to OFF and injects nothing', async () => {
-        const bg = createBackgroundEnv({ storedState: 'OFF' });
-        await fire(bg);
-        assert.deepEqual(bg.callsTo('action.setBadgeText'), [[{ tabId: 7, text: 'OFF' }]]);
-        assert.deepEqual(bg.callsTo('scripting.executeScript'), []);
-      });
-
-      test('does not message the tab', async () => {
-        const bg = createBackgroundEnv({ storedState: 'ON' });
-        await fire(bg);
-        assert.deepEqual(bg.callsTo('tabs.sendMessage'), []);
-      });
-    });
-  }
-
-  test('a created tab without an id is ignored (storage is not read)', async () => {
+  test('the clicked tab makes no difference: clicks in different tabs flip the same switch', async () => {
     const bg = createBackgroundEnv({ storedState: 'ON' });
-    await bg.createTab({});
-    assert.deepEqual(bg.calls, []);
+    await bg.click({ id: 1 });
+    await bg.click({ id: 2 });
+    await bg.click({ id: 3 });
+    assert.equal(bg.storage.extensionState, 'OFF');
+    assert.equal(bg.globalBadge, 'OFF');
+  });
+
+  test('the next state comes from storage, not from a badge that may be stale', async () => {
+    const bg = createBackgroundEnv({ storedState: 'OFF', globalBadge: 'ON' });
+    await bg.click();
+    assert.equal(bg.storage.extensionState, 'ON');
+    assert.equal(bg.globalBadge, 'ON');
+  });
+
+  test('two clicks: OFF then back ON', async () => {
+    const bg = createBackgroundEnv({ storedState: 'ON' });
+    await bg.click();
+    assert.equal(bg.globalBadge, 'OFF');
+    await bg.click();
+    assert.equal(bg.storage.extensionState, 'ON');
+    assert.equal(bg.globalBadge, 'ON');
+  });
+});
+
+describe('B-4 the badge follows the stored state', () => {
+  test('a change synced from another device updates the badge', async () => {
+    const bg = createBackgroundEnv({ storedState: 'ON' });
+    await bg.install({ reason: 'update' });
+    await bg.sharedStorage.sync.set({ extensionState: 'OFF' });
+    await new Promise((r) => setImmediate(r));
+    assert.equal(bg.globalBadge, 'OFF');
+  });
+
+  test('changes to other keys or storage areas do not touch the badge', async () => {
+    const bg = createBackgroundEnv({ storedState: 'ON' });
+    const listener = bg.chrome.storage.onChanged.listeners[0];
+    listener({ other: { newValue: 1 } }, 'sync');
+    listener({ extensionState: { newValue: 'OFF' } }, 'local');
+    await new Promise((r) => setImmediate(r));
+    assert.deepEqual(bg.callsTo('action.setBadgeText'), []);
   });
 });
 
 describe('known bugs, not yet covered', () => {
-  test.todo('B-3 badge never says ON where injection failed; injection errors are caught');
-  test.todo('B-4 badge in every tab matches the decided global/per-tab model');
-  test.todo('B-5 no uncaught errors on restricted pages; badge not ON there; OFF without receiver');
-  test.todo('B-6 onInstalled resets state only when reason is "install"');
+  test.todo('B-5 restricted pages (chrome://, Web Store): decide what the global badge shows there');
 });

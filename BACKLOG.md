@@ -158,32 +158,36 @@ Acceptance criteria:
 Done: with Ctrl, Meta or Alt held, keys run nothing, in normal and link mode (a modifier+letter is not label input), and are not prevented. Tests: `tests/key-filtering.test.js`, `tests/e2e/b1-b2-key-filtering.test.js`.
 
 ### B-3 Auto-enable on new tabs and navigation probably does not work
-Type: bug · Priority: P1 (proposed) · Status: proposed
+Type: bug · Priority: P1 · Status: done
 
 Current behavior: background.js injects the content script on `tabs.onCreated` and on every `webNavigation.onDOMContentLoaded` when the stored state is ON. The manifest grants only `activeTab` (no host permissions), which applies only to a tab after the user clicks the icon, so these injections are expected to fail on most pages. Rejections are not caught, so failures show up only in the service worker console; the badge may say ON while keys do nothing.
 Expected behavior: Not yet defined — see open questions. At minimum, the badge must never say ON for a tab where commands do not work.
 Steps to reproduce (needs manual verification): Turn VimNav ON in one tab, open a new tab and load a different site, press `j`.
 
 Acceptance criteria:
-- [ ] Verified by hand and documented: whether commands work after (a) opening a new tab, (b) navigating the current tab to another origin, (c) navigating within the same origin, (d) reloading.
-- [ ] For each case, the badge matches whether commands actually work.
-- [ ] No uncaught errors from injection appear in the service worker console.
+- [x] Verified by hand and documented: whether commands work after (a) opening a new tab, (b) navigating the current tab to another origin, (c) navigating within the same origin, (d) reloading.
+- [x] For each case, the badge matches whether commands actually work.
+- [x] No uncaught errors from injection appear in the service worker console.
 
 Notes: `onDOMContentLoaded` also fires for iframes and the handler does not check `frameId`, so it may try to inject into the main frame repeatedly (the script then throws "VimNav already active"); include this in the verification. Open questions: Should VimNav run automatically on all sites (which requires broader site access that users must accept at install), or only on tabs where the user clicked the icon? Related: B-4, C-5.
 
+Done: Project owner decision: VimNav runs on all sites with one global on/off switch, ON after a fresh install. The manifest loads vim-scroll.js into every page (`content_scripts`, `<all_urls>`, `document_start`); each page follows `extensionState` in sync storage, at load and live through `storage.onChanged`. The service worker only flips the state on an icon click and shows it on one global badge. No injection, so `activeTab`, `scripting`, `tabs` and `webNavigation` were removed. Commands work in new tabs, after navigation and after reload without clicking the icon. Limit: Chrome blocks extensions on `chrome://` pages and the Web Store, where the global badge still says ON (B-5). Tabs open before VimNav is installed or reloaded need one page reload. Tests: `tests/integration.test.js`, `tests/e2e/b3-b4-global-switch.test.js`.
+
 ### B-4 On/off state is inconsistent across tabs
-Type: bug · Priority: P1 (proposed) · Status: proposed
+Type: bug · Priority: P1 · Status: done
 
 Current behavior: The state is saved globally in `storage.sync`, but clicking the icon reads and sets only the current tab's badge and messages only the current tab. Other open tabs keep their old badge and behavior, and the next click in another tab toggles based on that tab's badge, not the stored state.
 Expected behavior: Not yet defined — see open questions. Whatever the model, the badge in every tab shows the state that actually applies there, and a click always produces the opposite of what the badge showed.
 Steps to reproduce: Open tabs A and B, enable in A (A shows ON), switch to B (badge OFF, but storage says ON), click: B turns ON and storage stays ON; return to A and click: A turns OFF and storage is OFF while B still shows ON.
 
 Acceptance criteria:
-- [ ] Behavior matches the decided model (global or per-tab) in every open tab, without reloading.
-- [ ] The badge in each tab always matches whether commands work in that tab.
-- [ ] Toggling in one tab never leaves another tab showing a state that differs from its actual behavior.
+- [x] Behavior matches the decided model (global or per-tab) in every open tab, without reloading.
+- [x] The badge in each tab always matches whether commands work in that tab.
+- [x] Toggling in one tab never leaves another tab showing a state that differs from its actual behavior.
 
 Notes: Open question: should on/off be a single global switch (all tabs) or per tab? Depends on the B-3 decision.
+
+Done: See B-3 for the design. A click in any tab flips the one switch; every open tab follows at once without reloading, and turning OFF also leaves link mode. Tests: `tests/background.test.js`, `tests/content-toggle.test.js`, `tests/integration.test.js`, `tests/e2e/b3-b4-global-switch.test.js`.
 
 ### C-4 Automated test setup for pure logic
 Type: chore · Priority: P1 (proposed) · Status: proposed
@@ -213,16 +217,18 @@ Acceptance criteria:
 Notes: Open question: should the user get any indication that VimNav cannot run on this page beyond the badge? Related: B-4.
 
 ### B-6 Extension resets to OFF on every update or reload
-Type: bug · Priority: P2 (proposed) · Status: proposed
+Type: bug · Priority: P2 · Status: done
 
 Current behavior: `runtime.onInstalled` sets the state to OFF without checking the reason, so it also runs on extension updates, unpacked reloads and Chrome updates.
 Expected behavior: The state is set to OFF only on first install; after an update or reload the user's saved state is kept.
 
 Acceptance criteria:
-- [ ] On first install the state is OFF.
-- [ ] After reloading the unpacked extension (or an update), the previously saved state is unchanged.
+- [x] On first install the state is OFF.
+- [x] After reloading the unpacked extension (or an update), the previously saved state is unchanged.
 
 Notes: Whether the badge/script in already-open tabs reflects the kept state after a reload depends on B-3/B-4.
+
+Done: Install and update keep the stored state; nothing stored means ON. Tests: `tests/background.test.js`.
 
 ### B-7 Link mode: a mistyped label blocks later attempts
 Type: bug · Priority: P2 (proposed) · Status: proposed
@@ -393,15 +399,17 @@ Acceptance criteria:
 Notes: Needed to verify B-3, B-5, B-13, B-15.
 
 ### C-6 Remove unused `tabs` permission
-Type: chore · Priority: P3 (proposed) · Status: proposed
+Type: chore · Priority: P3 · Status: done
 
 As a user, I want the extension to request only the permissions it needs, so that I can trust it.
 
 Acceptance criteria:
-- [ ] `tabs` is removed from the manifest permissions.
-- [ ] Toggling, messaging and new-tab handling behave the same as before (per C-5).
+- [x] `tabs` is removed from the manifest permissions.
+- [x] Toggling, messaging and new-tab handling behave the same as before (per C-5).
 
 Notes: Code reading confirms it is unused: only `tab.id`, `tabs.sendMessage` and `tabs.onCreated` are used, none of which need it. Recheck if B-3/B-4 decisions add tab URL access.
+
+Done: Removed with `activeTab`, `scripting` and `webNavigation` (B-3).
 
 ### C-7 Document link mode in README
 Type: chore · Priority: P3 (proposed) · Status: proposed
@@ -529,6 +537,8 @@ Acceptance criteria:
 
 Notes: Not in README (C-7). Known bugs: the state is stored globally but the badge and messages are per tab (B-4); errors on restricted pages (B-5); reset to OFF on every update or reload (B-6). Ambiguous: a label timer started before OFF still fires after OFF and may navigate.
 
+Superseded by B-3/B-4/B-6: the switch is now global, starts ON, and turning OFF leaves link mode.
+
 ### F-11 Re-apply saved state on new tabs and page loads
 Type: feature · Priority: — · Status: done
 
@@ -541,3 +551,5 @@ Acceptance criteria:
 - [x] If the stored state is `OFF`, nothing is injected.
 
 Notes: Not in README. Shipped in code, but it probably does not work in practice because the extension only has `activeTab` access (B-3). Repeated injection on iframe loads (B-3). Not re-applied on Back/Forward cache restores (B-15). Interacts with B-4.
+
+Superseded by B-3: the manifest loads VimNav into every page; the service worker no longer injects it.
