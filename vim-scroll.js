@@ -76,9 +76,7 @@ document.addEventListener('keydown', (e) => {
 // In link mode only lowercase letters are label input; other keys except Escape are ignored.
 function handleLinkModeKey(keyName) {
   if (keyName === 'Escape') {
-    linkMode = false;
-    removeAllLinkLabels();
-    resetLinkModeState();
+    exitLinkMode();
     return;
   }
   if (!/^[a-z]$/.test(keyName)) return;
@@ -101,10 +99,24 @@ function handleLinkModeKey(keyName) {
 function followTypedLabel() {
   const url = linkHash[linkModeBuffer];
   if (url && url.length > 0) {
+    exitLinkMode();
     window.location.href = url;
-    resetLinkModeState();
   }
 }
+
+
+function exitLinkMode() {
+  linkMode = false;
+  removeAllLinkLabels();
+  resetLinkModeState();
+}
+
+
+// A page left in link mode would come back from the back/forward cache with its labels still
+// drawn; leave it in normal mode whenever it is hidden.
+window.addEventListener('pagehide', () => {
+  if (linkMode) exitLinkMode();
+});
 
 
 // Labels float above the page (absolutely positioned in <html>), so the page layout never moves.

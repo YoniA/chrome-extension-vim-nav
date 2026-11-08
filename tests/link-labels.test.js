@@ -207,9 +207,12 @@ describe('F-1 only lowercase input matches labels', () => {
 describe('F-1 label letters do not run normal commands in link mode', () => {
   test('j, k, h and l typed as label input do not scroll', () => {
     const env = setup(30);
-    env.keydown('f');
-    for (const k of ['j', 'k', 'h', 'l']) env.keydown(k);
+    for (const k of ['j', 'k', 'h', 'l']) {
+      env.keydown('f');
+      env.keydown(k); // a complete label: followed at once, which leaves link mode
+    }
     assert.deepEqual(env.scrollCalls, []);
+    assert.equal(env.navigations().length, 4);
   });
 
   test('g g typed quickly in link mode does not jump to the top, it follows "gg"', () => {
@@ -256,10 +259,10 @@ describe('F-1 label letters do not run normal commands in link mode', () => {
   test('f in link mode follows the link labeled f and adds no labels', () => {
     const env = setup(6);
     env.keydown('f');
-    env.keydown('f');
     assert.equal(env.labels().length, 6);
-    env.clock.advance(1000);
+    env.keydown('f');
     assert.deepEqual(env.navigations(), [url(5)]);
+    assert.equal(env.labels().length, 0, 'following a label leaves link mode and removes its labels');
   });
 
   test('after Escape, j scrolls again', () => {

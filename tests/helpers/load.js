@@ -48,14 +48,20 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize } = {}) {
 
   const scrollCalls = [];
   const historyCalls = [];
+  const windowListeners = [];
   const getComputedStyle = (el) => computedStyleOf(el);
   const window = {
     location: { href: 'https://example.test/start' },
     scrollBy(...args) {
       scrollCalls.push(copy(args));
     },
-    addEventListener() {},
-    removeEventListener() {},
+    addEventListener(type, handler) {
+      windowListeners.push({ type, handler });
+    },
+    removeEventListener(type, handler) {
+      const i = windowListeners.findIndex((l) => l.type === type && l.handler === handler);
+      if (i >= 0) windowListeners.splice(i, 1);
+    },
     innerWidth: VIEWPORT.width,
     innerHeight: VIEWPORT.height,
     scrollX: 0,
@@ -127,6 +133,12 @@ function createContentEnv({ hrefs = [], scrollHeight = 5000, groupSize } = {}) {
         },
       };
       for (const l of document.keydownListeners()) l.handler(event);
+      return event;
+    },
+    // Dispatches a window event (e.g. 'pagehide', 'pageshow') to the listeners registered for it.
+    windowEvent(type, props = {}) {
+      const event = { type, ...props };
+      for (const l of windowListeners.filter((l) => l.type === type)) l.handler(event);
       return event;
     },
     // Presses each key in order, `gap` ms apart (advancing the clock between keys).

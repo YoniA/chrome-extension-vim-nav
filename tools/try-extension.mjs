@@ -103,6 +103,8 @@ const context = await chromium.launchPersistentContext(path.join(sandbox, 'profi
   headless: !headed,
   viewport: { width: 1280, height: 800 },
   args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`],
+  // Playwright turns off the back/forward cache; real Chrome has it on, and it changes what Back shows.
+  ignoreDefaultArgs: ['--disable-back-forward-cache'],
 });
 
 const errors = [];
@@ -230,7 +232,8 @@ try {
       page = pages[step.switchTab];
       await page.bringToFront();
     } else if ('browserBack' in step) {
-      await page.goBack().catch(() => {});
+      // A page restored from the back/forward cache never fires "load"
+      await page.goBack({ waitUntil: 'commit' }).catch(() => {});
     } else if ('screenshot' in step) {
       const file = path.join(outDir, `${String(index).padStart(2, '0')}-${step.screenshot}.png`);
       await page.screenshot({ path: file, fullPage: step.fullPage ?? false });

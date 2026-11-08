@@ -323,13 +323,55 @@ describe('F-9 exit link mode with Escape', () => {
   });
 });
 
+describe('B-8 following a link leaves link mode', () => {
+  test('following a label removes the labels and turns link mode off', () => {
+    const env = setup(3);
+    env.keydown('f');
+    env.keydown('b');
+    assert.deepEqual(env.navigations(), [url(1)]);
+    assert.equal(env.labels().length, 0);
+    env.keydown('j'); // a normal command again (matters for same-page links, where nothing unloads)
+    assert.deepEqual(env.scrollCalls, [[0, 50]]);
+  });
+
+  test('following a label after the 1000 ms wait also leaves link mode', () => {
+    const env = setup(27);
+    env.keydown('f');
+    env.keydown('a');
+    env.clock.advance(1000);
+    assert.deepEqual(env.navigations(), [url(0)]);
+    assert.equal(env.labels().length, 0);
+  });
+});
+
+describe('B-15 a hidden page is left in normal mode', () => {
+  test('pagehide in link mode removes the labels and turns link mode off', () => {
+    const env = setup(27);
+    env.keydown('f');
+    env.keydown('a'); // pending: "a" waits for a possible "aa"
+    env.windowEvent('pagehide', { persisted: true });
+    assert.equal(env.labels().length, 0);
+    assert.equal(env.clock.pendingCount(), 0);
+    env.clock.advance(5000);
+    assert.deepEqual(env.navigations(), []);
+    env.keydown('j');
+    assert.deepEqual(env.scrollCalls, [[0, 50]]);
+  });
+
+  test('pagehide outside link mode changes nothing', () => {
+    const env = setup(3);
+    env.windowEvent('pagehide', { persisted: true });
+    env.keydown('j');
+    assert.deepEqual(env.scrollCalls, [[0, 50]]);
+  });
+  // Restoring a cached page with Back, Forward and H in real Chromium: tests/e2e/b15-back-forward.test.js.
+});
+
 describe('known bugs, not yet covered', () => {
   test.todo('B-7 after an unmatched label times out, the next label is matched on its own');
-  test.todo('B-8 following a link exits link mode and removes labels');
   test.todo('B-9 Escape removes labels; repeated f/Escape shows one label per link');
   test.todo('B-10 in link mode, non-character keys (Tab, arrows) are not label input');
   test.todo('B-11 following a link behaves like a click (target=_blank, click handlers)');
   // B-12 (visibility, layout) is tested in real Chromium: tests/e2e/b12-*.test.js.
-  test.todo('B-15 no stale labels or link mode after a back/forward cache restore');
   test.todo('F-10 open question: should a label timer started before OFF still navigate after OFF');
 });

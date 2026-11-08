@@ -54,6 +54,8 @@ async function startBrowser() {
     viewport: VIEWPORT,
     deviceScaleFactor: 1,
     args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`],
+    // Playwright turns off the back/forward cache; real Chrome has it on, and it changes what Back shows.
+    ignoreDefaultArgs: ['--disable-back-forward-cache'],
   });
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   let counter = 0;

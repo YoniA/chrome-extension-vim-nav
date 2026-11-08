@@ -233,7 +233,9 @@ Acceptance criteria:
 Notes: Open question: after a mistake, stay in link mode (labels visible) or exit link mode?
 
 ### B-8 Link mode stays on after following a same-page link
-Type: bug · Priority: P2 (proposed) · Status: proposed
+Type: bug · Priority: P2 · Status: done
+
+Fixed (branch `fix-back-forward-link-mode`): following a label leaves link mode and removes its labels before navigating.
 
 Current behavior: After a link is followed, only the buffer and link list are cleared; link mode stays on and labels stay visible. If the page does not reload (`#anchor` links, single-page app routes), the user is left with visible labels that no longer work, and `f` does nothing until Escape is pressed.
 Expected behavior: Following a link always exits link mode and removes the labels.
@@ -316,7 +318,9 @@ Acceptance criteria:
 Notes: Open questions: Should VimNav keys take priority over page shortcuts, should the page win, or should it be configurable per site? Is a per-site disable list wanted?
 
 ### B-15 State and labels not handled when a page is restored via Back/Forward
-Type: bug · Priority: P3 (proposed) · Status: proposed
+Type: bug · Priority: P2 · Status: done
+
+Reported by the project owner: Back with `H` sometimes showed the previous page still in link mode. Fixed (branch `fix-back-forward-link-mode`): link mode is left before following a label and whenever the page is hidden (`pagehide`), so Back/Forward always restore a page in normal mode. Covered by unit tests and tests/e2e/b15-back-forward.test.js (with Chrome's back/forward cache on).
 
 Current behavior (from code reading, needs manual verification): When a page is restored from the back/forward cache, the old script state is kept and the background does not re-apply the on/off state (no DOMContentLoaded fires). Because following a link leaves link mode on with labels visible (B-8), going Back to that page likely shows stale labels and link mode still on. If the state was toggled while the page was in the cache, the restored page may still use the old state.
 Expected behavior: A page restored via Back/Forward has no leftover labels, is not in link mode, and follows the current on/off state.
