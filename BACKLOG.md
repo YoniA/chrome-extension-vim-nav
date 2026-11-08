@@ -416,19 +416,21 @@ Notes: Code reading confirms it is unused: only `tab.id`, `tabs.sendMessage` and
 Done: Removed with `activeTab`, `scripting` and `webNavigation` (B-3).
 
 ### C-7 Document link mode in README
-Type: chore · Priority: P3 (proposed) · Status: proposed
+Type: chore · Priority: P3 · Status: done
 
 As a user, I want the README to list all commands, so that I know link mode exists and how to use it.
 
 Acceptance criteria:
-- [ ] README lists `f` (enter link mode), typing a label to follow a link, and Escape to exit.
-- [ ] README explains how to turn VimNav on/off with the toolbar icon.
+- [x] README lists `f` (enter link mode), typing a label to follow a link, and Escape to exit.
+- [x] README explains how to turn VimNav on/off with the toolbar icon.
 
 Notes: Not in the review list; added because README currently omits `f` and Escape. Update again after F-1/F-2. Undocumented shipped behavior is recorded in F-7 to F-11.
 
 ## Done
 
 Items F-3 to F-11 record shipped behavior as of commit 922fdab. They were written from reading the code and are not yet verified by tests (C-4, C-5). Their acceptance criteria are the spec for tests of current behavior. Known bugs are referenced in Notes and are not part of the criteria.
+
+Done: README rewritten with install, the on/off switch, every command (scrolling, history and tabs, link mode, search, typing in fields), limitations and development commands.
 
 ### F-16 Label buttons and form fields in link mode
 Type: feature · Priority: P2 · Status: done
