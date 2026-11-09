@@ -358,6 +358,29 @@ Acceptance criteria:
 
 Notes: Not chosen: the project owner chose F-1's a…z, aa… sequence instead, which has shared prefixes and keeps the 1 s wait. Kept for possible future reconsideration (e.g. as an option); not planned.
 
+### F-17 Read local PDFs in VimNav's own viewer (optional, TBD)
+Type: feature · Priority: P3 (proposed) · Status: proposed
+
+As a keyboard-only user who reads PDFs stored on my computer, I want to open them in a PDF viewer where VimNav's keys work, so that I can read them without the mouse.
+
+Background (verified in the sandbox): Chrome's built-in PDF viewer is closed to extensions. VimNav loads only in the page around the PDF, receives no keys there, and cannot inject into the PDF frame (`all_frames` and `chrome.scripting` were both tried). Chrome's own keys there: ↓/↑ scroll 40 px, Space/Page Down 87.5% of the visible height. Mozilla's hosted PDF.js viewer opens local files, but VimNav can't scroll it (B-13) and its own `j`/`k` jump whole pages (B-14).
+
+Proposed approach: bundle Mozilla's PDF.js viewer (`pdfjs-dist`, Apache 2.0) as a page inside the extension, where VimNav controls the keys.
+
+Acceptance criteria (draft, to be confirmed):
+- [ ] A VimNav PDF viewer page opens a local PDF chosen with a file picker or dropped onto the page. The file is read locally and never uploaded.
+- [ ] In the viewer: `j`/`k` scroll smoothly by a small step; `gg`/`G` go to the start/end of the document; `H`/`L`, `x` and the on/off switch behave as on other pages.
+- [ ] PDF.js's own single-key shortcuts that clash with VimNav keys (e.g. `j`/`k` page jumps) are switched off in the viewer.
+- [ ] `/`, `n`, `N` search the whole document (not only pages already drawn), with the F-15 behavior (counter, smartcase, wrap, Escape).
+- [ ] The viewer's look is customized with CSS (details TBD, e.g. dark theme, toolbar and sidebar hidden by default).
+- [ ] End-to-end tests open a local test PDF in the viewer and check scrolling, `gg`/`G` and search.
+
+Optional follow-ups (separate items if wanted):
+- Open `file:///…pdf` links in the VimNav viewer automatically instead of Chrome's (needs a new permission and the user turning on "Allow access to file URLs" for VimNav).
+- `f` labels for links inside the PDF; half-page scrolling (`d`/`u`).
+
+Notes: Optional; to be decided later by the project owner. Needs approval for the new dependency (adds roughly 5–10 MB; PDF.js needs a `wasm-unsafe-eval` extension-page CSP) and for any new permission. Estimated size: basic version about F-15 plus F-16 together; automatic opening of `file://` PDFs about one more session; a fully custom interface (beyond CSS) would be a project of its own. Trade-off: Chrome's viewer features (form filling, drawing on PDFs) are less complete in PDF.js. Alternative with less work: fix B-13 and B-14 and use Mozilla's hosted viewer. Upkeep: update PDF.js for security fixes.
+
 ### C-1 Add .gitignore
 Type: chore · Priority: P2 (proposed) · Status: proposed
 
