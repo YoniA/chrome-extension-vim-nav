@@ -21,7 +21,8 @@
     }
   },
   "permissions": [
-    "storage"
+    "storage",
+    "sessions"
   ],
   "content_scripts": [
     {

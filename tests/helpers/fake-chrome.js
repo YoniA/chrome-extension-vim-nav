@@ -64,9 +64,10 @@ function createContentChrome({ storage = createFakeStorage(), sendMessage } = {}
 // chrome object as seen by the service worker.
 //   storedState: initial value of extensionState in sync storage (undefined = not stored)
 //   globalBadge: initial badge text
-// It has no scripting or webNavigation API and only tabs.remove: the extension uses nothing else,
-// so any other call fails.
-function createBackgroundChrome({ storedState, globalBadge = '' } = {}) {
+// It has no scripting or webNavigation API, only tabs.remove and sessions.restore: the extension
+// uses nothing else, so any other call fails.
+//   restore(): what sessions.restore() does (default: resolves, as when something was reopened)
+function createBackgroundChrome({ storedState, globalBadge = '', restore } = {}) {
   const calls = [];
   const data = {};
   if (storedState !== undefined) data.extensionState = storedState;
@@ -79,6 +80,13 @@ function createBackgroundChrome({ storedState, globalBadge = '' } = {}) {
     tabs: {
       async remove(tabId) {
         calls.push(['tabs.remove', copy(tabId)]);
+      },
+    },
+    sessions: {
+      async restore(...args) {
+        calls.push(['sessions.restore', ...copy(args)]);
+        if (restore) return restore(...args);
+        return {};
       },
     },
     action: {

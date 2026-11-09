@@ -84,21 +84,23 @@ Notes: Requested by the project owner, who also answered its open questions. Not
 Done: `x` asks the service worker, which closes the tab the key was pressed in with `tabs.remove` (no new permission), unless it is pinned. Auto-repeat keydowns are ignored. Tests: `tests/close-tab.test.js`, `tests/e2e/f13-close-tab.test.js`. Closing a window's last tab is Chrome's own `tabs.remove` behavior and is not tested separately.
 
 ### F-14 Reopen the last closed tab with X
-Type: feature · Priority: P3 (proposed) · Status: ready
+Type: feature · Priority: P3 · Status: done
 
 As a user, I want to reopen the most recently closed tab by pressing `X`, so that I can undo closing a tab (including with `x`, F-13).
 
 Acceptance criteria:
-- [ ] While VimNav is ON in the active tab, pressing uppercase `X` (Shift+x or Caps Lock) reopens the most recently closed tab, as in Vimium.
-- [ ] "Most recently closed" covers any tab the user closed, however it was closed (`x`, Cmd/Ctrl+W, mouse), not only tabs closed with `x`.
-- [ ] If the most recent thing closed was a whole window (e.g. `x` on its last tab), `X` reopens that window, same as Chrome's Cmd/Ctrl+Shift+T.
-- [ ] Pressing `X` again reopens the next most recently closed tab or window, and so on.
-- [ ] Holding `X` down reopens only one tab or window: repeated keydowns from key auto-repeat are ignored, as in F-13.
-- [ ] With nothing to reopen, `X` does nothing.
-- [ ] While VimNav is OFF, `X` does nothing.
-- [ ] `X` never closes a tab.
+- [x] While VimNav is ON in the active tab, pressing uppercase `X` (Shift+x or Caps Lock) reopens the most recently closed tab, as in Vimium.
+- [x] "Most recently closed" covers any tab the user closed, however it was closed (`x`, Cmd/Ctrl+W, mouse), not only tabs closed with `x`.
+- [x] If the most recent thing closed was a whole window (e.g. `x` on its last tab), `X` reopens that window, same as Chrome's Cmd/Ctrl+Shift+T.
+- [x] Pressing `X` again reopens the next most recently closed tab or window, and so on.
+- [x] Holding `X` down reopens only one tab or window: repeated keydowns from key auto-repeat are ignored, as in F-13.
+- [x] With nothing to reopen, `X` does nothing.
+- [x] While VimNav is OFF, `X` does nothing.
+- [x] `X` never closes a tab.
 
 Notes: Project owner decisions; split from F-13 to keep both items small. Not part of branch `fix-labels`. Same constraints as F-13: must not ship before B-1, B-2 and B-10.
+
+Done: `X` asks the service worker, which calls `sessions.restore()` with no session id (Chrome's own recently-closed list, the same as Cmd/Ctrl+Shift+T). Adds the `sessions` permission. Auto-repeat keydowns are ignored; with nothing to reopen nothing happens. Tests: `tests/reopen-tab.test.js`, `tests/e2e/f14-reopen-tab.test.js` (including reopening a closed window).
 
 ### F-15 Search the page with /
 Type: feature · Priority: P3 · Status: done

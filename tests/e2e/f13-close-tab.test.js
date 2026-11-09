@@ -15,6 +15,14 @@ after(async () => {
   await browser?.close();
 });
 
+// Presses x to close the tab. The tab can close between key down and key up, which makes
+// Playwright report the unfinished key press as an error; that's expected here.
+async function pressCloseKey(page) {
+  await page.keyboard.press('x').catch((e) => {
+    if (!page.isClosed() && !/closed/.test(e.message)) throw e;
+  });
+}
+
 async function closedSoon(page) {
   for (let i = 0; i < 20 && !page.isClosed(); i++) await new Promise((r) => setTimeout(r, 50));
   return page.isClosed();
@@ -45,7 +53,7 @@ describe('F-13 x closes the current tab', { timeout: 60000 }, () => {
     const keep = await browser.open('layout.html');
     const close = await browser.open('layout.html');
     try {
-      await close.keyboard.press('x');
+      await pressCloseKey(close);
       assert.ok(await closedSoon(close), 'tab was not closed');
       assert.equal(keep.isClosed(), false, 'the other tab was closed');
     } finally {
@@ -57,7 +65,7 @@ describe('F-13 x closes the current tab', { timeout: 60000 }, () => {
     const page = await browser.open('layout.html');
     try {
       await setPinned(page, true);
-      await page.keyboard.press('x');
+      await pressCloseKey(page);
       assert.equal(await closedSoon(page), false, 'pinned tab was closed');
     } finally {
       if (!page.isClosed()) {
@@ -94,7 +102,7 @@ describe('F-13 x closes the current tab', { timeout: 60000 }, () => {
     try {
       await browser.setState('OFF');
       await page.waitForTimeout(100);
-      await page.keyboard.press('x');
+      await pressCloseKey(page);
       assert.equal(await closedSoon(page), false);
     } finally {
       await browser.setState('ON');

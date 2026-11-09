@@ -26,8 +26,11 @@ chrome.action.onClicked.addListener(toggleExtension);
 
 // x in a page (F-13): close the tab it was pressed in, unless it is pinned. Closing a window's
 // last tab closes the window, as Cmd/Ctrl+W does.
+// X (F-14): reopen the most recently closed tab or window, like Cmd/Ctrl+Shift+T.
 chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg?.action === 'closeTab' && sender.tab && !sender.tab.pinned) chrome.tabs.remove(sender.tab.id);
+  if (!sender.tab) return;
+  if (msg?.action === 'closeTab' && !sender.tab.pinned) chrome.tabs.remove(sender.tab.id);
+  if (msg?.action === 'reopenTab') chrome.sessions.restore().catch(() => {}); // nothing to reopen
 });
 
 // Also covers a change synced from another device.

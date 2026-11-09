@@ -110,6 +110,10 @@ document.addEventListener('keydown', (e) => {
 				// Holding x closes one tab: auto-repeat keydowns (also in the next active tab) are ignored.
 				if (!e.repeat) askBackground({ action: 'closeTab' });
 				break;
+			case 'X':
+				// Reopen the last closed tab or window; holding X reopens only one.
+				if (!e.repeat) askBackground({ action: 'reopenTab' });
+				break;
 		}
   }
 

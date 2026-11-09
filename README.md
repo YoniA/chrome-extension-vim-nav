@@ -35,6 +35,7 @@ then reload open tabs (tabs that were already open keep running the old version)
 | `H` | Back                                                            |
 | `L` | Forward                                                         |
 | `x` | Close the current tab (not pinned tabs; holding `x` closes one) |
+| `X` | Reopen the last closed tab or window (like Cmd/Ctrl+Shift+T)  |
 
 ### Link mode
 

@@ -29,11 +29,11 @@ describe('F-13 content script: x asks to close the tab', () => {
     assert.deepEqual(env.sentMessages(), []);
   });
 
-  test('uppercase X does not close the tab', () => {
+  test('uppercase X does not close the tab (it reopens one, F-14)', () => {
     const env = setup();
     env.keydown('X', { shiftKey: true });
     env.keydown('X');
-    assert.deepEqual(env.sentMessages(), []);
+    assert.deepEqual(env.sentMessages().filter((m) => m.action === 'closeTab'), []);
   });
 
   test('while OFF, x does nothing', async () => {
